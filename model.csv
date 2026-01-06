@@ -1,0 +1,32 @@
+Final Conceptual Data Model: Cloud FinOps Star Schema
+
+|1. Model Selection and Structure|FIELD2|FIELD3|FIELD4|FIELD5|FIELD6|FIELD7|FIELD8|FIELD9|FIELD10|FIELD11|FIELD12|FIELD13|FIELD14|FIELD15|FIELD16|FIELD17|FIELD18|FIELD19|FIELD20|FIELD21|FIELD22|FIELD23|FIELD24|FIELD25|FIELD26|
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+|Component|Rationale| | | | | | | | | | | | | | | | | | | | | | | | |
+|Model Type|Dimensional Model (Star Schema). The transition from a highly normalized legacy EDW to a Dimension-Fact / Metric-Based Model in GCP is crucial for achieving analytical performance and the target query performance SLO (P90 dashboard load times under 20 seconds).| | | | | | | | | | | | | | | | | | | | | | | | |
+|Granularity|Atomic Line-Item Level (from Billing_Transaction_Ledger_Table) for detailed cost and usage tracking, supporting Unit Cost Metrics and Cost by K8s Namespace/Workload. Aggregated facts will be used for faster reporting of high-level metrics.| | | | | | | | | | | | | | | | | | | | | | | | |
+|Design Principle|Conformed Dimensions: Essential for enabling Cross-Cloud Cost Allocation by providing consistent definitions for core entities (e.g., Organization, Product, Resource) across multi-cloud data sources. This simplifies cross-cloud analysis and reporting.| | | | | | | | | | | | | | | | | | | | | | | | |
+| | | | | | | | | | | | | | | | | | | | | | | | | | |
+|2. Blueprint Mapping: Fact Tables (Data Tables)| | | | | | | | | | | | | | | | | | | | | | | | | |
+|The model utilizes atomic transaction facts for detailed analysis and aggregate facts for performance, alongside bridge facts for complex relationships.| | | | | | | | | | | | | | | | | | | | | | | | |
+|Target Fact Table|Source Table Mapping (Source DDL)|Key Metrics Supported| | | | | | | | | | | | | | | | | | | | | | | |
+|FACT_DAILY_USAGE (Transaction)|Billing_Transaction_Ledger_Table, Transaction_Credit_Item_Table|Total Monthly Cloud Spend, Unit Cost Metrics, Cost by K8s Namespace/Workload| | | | | | | | | | | | | | | | | | | | | | | |
+|FACT_MONTHLY_AGGREGATE (Aggregate)|Derived from FACT_DAILY_USAGE|Actual vs. Budget Variance, faster reporting for monthly summaries| | | | | | | | | | | | | | | | | | | | | | | |
+|FACT_COMPLEX_PRICING (Bridge)|Account_SKU_Price_Rule, Account_Price_Tier_Table, Consumption_Model_Rule_Table|Reservation/Commitment Coverage Rate, Accurate cost calculation based on negotiated pricing and consumption models.| | | | | | | | | | | | | | | | | | | | | | | |
+| | | | | | | | | | | | | | | | | | | | | | | | | | |
+|3. Blueprint Mapping: Dimension Tables (Master & Data Tables)| | | | | | | | | | | | | | | | | | | | | | | | | |
+|All dimensions are designed as wide, denormalized tables where appropriate to simplify user queries and optimize visualization tool performance, adhering to the principle of conformed dimensions.| | | | | | | | | | | | | | | | | | | | | | | | |
+|Target Dimension Table|Source Table Mapping (Source DDL)|SCD Type Requirement| | | | | | | | | | | | | | | | | | | | | | | |
+|DIM_ORGANIZATION|Project_Profile_Table, Project_Ancestor_Node_Table|SCD Type 2. Mandatory for tracking changes to organizational mappings like business_unit, workload, and Environment, ensuring historical cost accountability.| | | | | | | | | | | | | | | | | | | | | | | |
+|DIM_PRODUCT|Service_SKU_Table, Product_Taxonomy_Table|SCD Type 2. Captures changes to product definitions, descriptions, and taxonomy mappings, which is crucial for understanding cost evolution over time.| | | | | | | | | | | | | | | | | | | | | | | |
+|DIM_RESOURCE|Resource_Inventory_Table, Resource_Tag_Table, Resource_Label_Table|SCD Type 2. Necessary for resources where attributes (e.g., location, status, tags/labels impacting cost allocation) change over time to preserve historical context.| | | | | | | | | | | | | | | | | | | | | | | |
+|DIM_LOCATION|Geo_Taxonomy_Table|SCD Type 1. Geography attributes (Region, Zone) are typically static lookups. If significant changes occur, a separate versioning strategy may be considered, but for general purposes, SCD Type 1 suffices.| | | | | | | | | | | | | | | | | | | | | | | |
+|DIM_DATE|Generated (Standard Date Dimension)|N/A (Typically a static, pre-populated dimension)| | | | | | | | | | | | | | | | | | | | | | | |
+| | | | | | | | | | | | | | | | | | | | | | | | | | |
+|4. Requirement Integration (Compliance & Performance)| | | | | | | | | | | | | | | | | | | | | | | | | |
+|Non-Functional Requirement|Implementation Strategy in the DDM| | | | | | | | | | | | | | | | | | | | | | | |
+|Query Performance SLO (sub-20s)|Achieved via Star Schema (denormalization) and the use of FACT_MONTHLY_AGGREGATE tables, allowing dashboards to query pre-summarized data. Proper indexing and partitioning in BigQuery will also be key.| | | | | | | | | | | | | | | | | | | | | | | |
+|SCD Type 2 Tracking|Applied to DIM_ORGANIZATION, DIM_PRODUCT, and DIM_RESOURCE to satisfy the mandatory requirement for historical cost accountability and accurate historical reporting when key attributes change.| | | | | | | | | | | | | | | | | | | | | | | |
+|Cross-Cloud Cost Allocation|Enabled by implementing conformed dimensions (DIM_ORGANIZATION, DIM_PRODUCT, DIM_RESOURCE) that standardize terminology and structures across AWS, Azure, and GCP data sources.| | | | | | | | | | | | | | | | | | | | | | | |
+|Container Cost Allocation|Supported by the atomic granularity of FACT_DAILY_USAGE and the detailed resource information available in DIM_RESOURCE (including tags/labels), allowing for granular breakdown of costs by Kubernetes namespaces/workloads.| | | | | | | | | | | | | | | | | | | | | | | |
+|RLS (Row-Level Security)|Implemented on the DIM_ORGANIZATION table. BigQuery RLS policies will restrict access to Fact tables based on the user's mapped business_unit or workload in the DIM_ORGANIZATION table, ensuring data governance and compliance.| | | | | | | | | | | | | | | | | | | | | | | |

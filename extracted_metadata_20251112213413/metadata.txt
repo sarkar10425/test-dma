@@ -1,0 +1,320 @@
+```json
+{
+  "METADATA_EXTRACTED_AT": "2024-03-01T12:00:00Z",
+  "AGENT_ID": "SQL_AND_METADATA_EXTRACTOR_AGENT",
+  "GOVERNANCE_AND_METHODOLOGY": {
+    "PRECEDENCE_HIERARCHY": null,
+    "TARGET_MODEL_PARADIGM": null,
+    "NAMING_CONVENTIONS": null,
+    "AUDIT_FIELDS_MANDATED": []
+  },
+  "STRUCTURAL_REQUIREMENTS": {
+    "DATA_VOLATILITY_INFO": {
+      "EXPECTED_REFRESH_FREQUENCY": null,
+      "VOLATILITY_LEVEL": null
+    },
+    "RELATIONSHIP_CONSTRAINTS": [
+      {
+        "SOURCE_TABLE": "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX",
+        "TARGET_TABLE": "credits (derived from UNNEST)",
+        "CARDINALITY": "One-to-Many",
+        "JOIN_KEY_REQUIREMENTS": [
+          "Implicit join via unnesting of 'credits' column"
+        ]
+      },
+      {
+        "SOURCE_TABLE": "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX",
+        "TARGET_TABLE": "ancestor (derived from UNNEST)",
+        "CARDINALITY": "One-to-Many",
+        "JOIN_KEY_REQUIREMENTS": [
+          "Implicit join via unnesting of 'project.ancestors' column"
+        ]
+      }
+    ]
+  },
+  "KPI_AND_LOGIC_DECOMPOSITION": {
+    "KPI_FORMULAS": [],
+    "MAPPING_GAPS": []
+  },
+  "SQL_ANALYSIS_AND_LINEAGE": {
+    "TABLE_NAMES": {
+      "BASE_TABLES": [
+        [
+          "project-ID.dataset.cloud_pricing_export",
+          "sku_pricing"
+        ],
+        [
+          "project-ID.dataset.gcp_billing_export_resource_v1_XXXXXX-XXXXXX-XXXXXX",
+          null
+        ],
+        [
+          "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX",
+          "bq"
+        ]
+      ],
+      "DERIVED_TABLES": [
+        [
+          "Exports",
+          "Exports"
+        ],
+        [
+          "Prices",
+          "Prices"
+        ],
+        [
+          "ancestor",
+          "ancestor"
+        ],
+        [
+          "credits",
+          "credits"
+        ],
+        [
+          "tier",
+          "tier"
+        ]
+      ]
+    },
+    "COLUMN_LINEAGE": {
+      "COLUMN_LIST_BASE": [
+        "project-ID.dataset.cloud_pricing_export._PARTITIONTIME",
+        "project-ID.dataset.cloud_pricing_export.geo_taxonomy",
+        "project-ID.dataset.cloud_pricing_export.list_price.*",
+        "project-ID.dataset.cloud_pricing_export.product_taxonomy",
+        "project-ID.dataset.cloud_pricing_export.service.description",
+        "project-ID.dataset.cloud_pricing_export.service.id",
+        "project-ID.dataset.cloud_pricing_export.sku.description",
+        "project-ID.dataset.cloud_pricing_export.sku.id",
+        "project-ID.dataset.gcp_billing_export_resource_v1_XXXXXX-XXXXXX-XXXXXX.*",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.cost",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.credits",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.invoice.month",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.project.ancestors",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.project.labels",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.project.name",
+        "project-ID.dataset.gcp_billing_export_v1_XXXXXX-XXXXXX-XXXXXX.sku.description"
+      ],
+      "COLUMN_LIST_DERIVED": [
+        "CUD_credits",
+        "ancestors",
+        "commitment_fees",
+        "credits.amount",
+        "credits.type",
+        "invoice_month",
+        "net_cost",
+        "project_labels",
+        "service_description",
+        "service_id",
+        "sku_description",
+        "sku_id",
+        "tier.*",
+        "total_cost",
+        "total_credits"
+      ],
+      "COLUMN_NESTED_QUERY": [
+        "c.amount",
+        "geo_taxonomy.regions",
+        "geo_taxonomy.type",
+        "product_taxonomy"
+      ],
+      "DERIVED_COLUMN_LOGIC": [
+        {
+          "DERIVED_COLUMN": "sku_id",
+          "LOGIC_ARRAY": [
+            "sku.id"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "sku_description",
+          "LOGIC_ARRAY": [
+            "sku.description"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "service_id",
+          "LOGIC_ARRAY": [
+            "service.id"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "service_description",
+          "LOGIC_ARRAY": [
+            "service.description"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "invoice_month",
+          "LOGIC_ARRAY": [
+            "invoice.month"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "commitment_fees",
+          "LOGIC_ARRAY": [
+            "SUM(cost)"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "CUD_credits",
+          "LOGIC_ARRAY": [
+            "SUM(credits.amount)"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "ancestors",
+          "LOGIC_ARRAY": [
+            "TO_JSON_STRING(project.ancestors)"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "net_cost",
+          "LOGIC_ARRAY": [
+            "SUM(cost)+ SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "project_labels",
+          "LOGIC_ARRAY": [
+            "TO_JSON_STRING(project.labels)"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "total_cost",
+          "LOGIC_ARRAY": [
+            "sum(cost)"
+          ]
+        },
+        {
+          "DERIVED_COLUMN": "total_credits",
+          "LOGIC_ARRAY": [
+            "SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))"
+          ]
+        }
+      ],
+      "MISSING_COLUMNS": []
+    },
+    "DETAILED_CONSTRUCTS": {
+      "CASE_STATEMENTS": [],
+      "ERROR_HANDLING": []
+    }
+  },
+  "BUSINESS_METADATA": {
+    "TABLE_BUSINESS_DEFINITIONS": [
+      {
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>",
+        "definition": "This table is the foundational export and is suitable for broad trend analysis and project-level cost allocation. It contains standard cost usage information."
+      },
+      {
+        "table_name": "gcp_billing_export_resource_v1_<BILLING_ACCOUNT_ID>",
+        "definition": "The Detailed Usage Cost export includes all fields from the Standard export, plus additional fields that provide resource-level cost data. It is a non-negotiable prerequisite for any granular FinOps practice."
+      },
+      {
+        "table_name": "cloud_pricing_export",
+        "definition": "This table provides a snapshot of pricing information for your billing account."
+      }
+    ],
+    "COLUMN_BUSINESS_DEFINITIONS": [
+      {
+        "column_name": "billing_account_id",
+        "term": "The account being billed.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "invoice.month",
+        "term": "The invoice (YYYYMM) the charge is associated with, essential for monthly financial reporting.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "service.id",
+        "term": "The Google Cloud service that reported the data.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "service.description",
+        "term": "The Google Cloud service that reported the data.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "sku.id",
+        "term": "The specific Stock Keeping Unit (SKU) for the resource.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "sku.description",
+        "term": "The specific Stock Keeping Unit (SKU) for the resource.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "usage_start_time",
+        "term": "The hourly window for the cost record.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "usage_end_time",
+        "term": "The hourly window for the cost record.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "project",
+        "term": "A struct containing id, number, name, and labels. The project.labels field is fundamental for cost allocation.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "cost",
+        "term": "The cost incurred for the usage.",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "usage.amount",
+        "term": "The quantity of usage (e.g., 100 gibibyte seconds).",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "usage.unit",
+        "term": "The quantity of usage (e.g., 100 gibibyte seconds).",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "credits",
+        "term": "A repeated field struct containing credit information, such as credits.amount and credits.type (e.g., 'COMMITTED_USE_DISCOUNT').",
+        "table_name": "gcp_billing_export_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "resource.global_name",
+        "term": "A globally unique service identifier for the resource that generated the usage.",
+        "table_name": "gcp_billing_export_resource_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "resource.name",
+        "term": "A service-specific, often user-provided identifier for the resource.",
+        "table_name": "gcp_billing_export_resource_v1_<BILLING_ACCOUNT_ID>"
+      },
+      {
+        "column_name": "export_time",
+        "term": "When the row was generated.",
+        "table_name": "cloud_pricing_export"
+      },
+      {
+        "column_name": "pricing_as_of_time",
+        "term": "When the pricing was generated. The pricing was valid as of this date, but could have been in effect before that.",
+        "table_name": "cloud_pricing_export"
+      },
+      {
+        "column_name": "billing_account_id",
+        "term": "The ID of the Cloud Billing Account that the pricing is associated with.",
+        "table_name": "cloud_pricing_export"
+      },
+      {
+        "column_name": "business_entity_name",
+        "term": "Business entity name of the service which offers the SKU.",
+        "table_name": "cloud_pricing_export"
+      },
+      {
+        "column_name": "service",
+        "term": "STRUCT containing service ID and description.",
+        "table_name": "cloud_pricing_export"
+      }
+    ]
+  }
+}
+```

@@ -1,0 +1,77 @@
+sequenceDiagram
+    actor User
+    participant root_agent
+    participant before_model_callback
+    participant GCS
+    participant modelling_orchestrator_agent
+    participant reporting_agent
+    participant ddl_agent
+    participant synthetic_data_generator_agent
+    participant dml_agent
+    participant search_agent
+    participant sql_queries_agent
+
+    User->>root_agent: 1. Sends prompt
+    activate root_agent
+    root_agent->>before_model_callback: 2. Intercepts request
+    activate before_model_callback
+
+    alt First Interaction (state is None)
+        before_model_callback-->>User: 3a. "Welcome! Start fresh or continue?"
+        User->>root_agent: 3b. "2. Continue previous"
+        root_agent->>before_model_callback: 3c. Re-invokes callback
+        before_model_callback-->>User: 3d. "Please provide project_id, dataset_id, gcs_folder"
+    else Continue Previous Session
+        before_model_callback->>GCS: 4a. get_ddl_from_gcs(gcs_folder)
+        GCS-->>before_model_callback: 4b. Returns DDL
+        before_model_callback->>GCS: 4c. get_metadata_from_gcs(gcs_folder)
+        GCS-->>before_model_callback: 4d. Returns Metadata
+        note right of before_model_callback: 4e. Sets DDL & Metadata in state
+        before_model_callback-->>root_agent: 4f. Returns control
+    else Start Fresh Session
+        note right of before_model_callback: 5a. State is 'Fresh', returns control
+        before_model_callback-->>root_agent: 5b. Returns control
+    end
+    deactivate before_model_callback
+
+    root_agent->>root_agent: 6. Analyzes user intent based on prompt
+
+    alt User wants to create a model
+        root_agent->>modelling_orchestrator_agent: 7a. Invokes agent
+        activate modelling_orchestrator_agent
+        modelling_orchestrator_agent-->>root_agent: 8a. Returns result
+        deactivate modelling_orchestrator_agent
+    else User wants a report
+        root_agent->>reporting_agent: 7b. Invokes agent
+        activate reporting_agent
+        reporting_agent-->>root_agent: 8b. Returns result
+        deactivate reporting_agent
+    else User wants to execute DDL
+        root_agent->>ddl_agent: 7c. Invokes agent
+        activate ddl_agent
+        ddl_agent-->>root_agent: 8c. Returns result
+        deactivate ddl_agent
+    else User wants to generate data
+        root_agent->>synthetic_data_generator_agent: 7d. Invokes agent
+        activate synthetic_data_generator_agent
+        synthetic_data_generator_agent-->>root_agent: 8d. Returns result
+        deactivate synthetic_data_generator_agent
+    else User wants to query data (DML)
+        root_agent->>dml_agent: 7e. Invokes agent
+        activate dml_agent
+        dml_agent-->>root_agent: 8e. Returns result
+        deactivate dml_agent
+    else User wants to search schema/metadata
+        root_agent->>search_agent: 7f. Invokes agent
+        activate search_agent
+        search_agent-->>root_agent: 8f. Returns result
+        deactivate search_agent
+    else User wants to run other SQL queries
+        root_agent->>sql_queries_agent: 7g. Invokes agent
+        activate sql_queries_agent
+        sql_queries_agent-->>root_agent: 8g. Returns result
+        deactivate sql_queries_agent
+    end
+
+    root_agent-->>User: 9. Sends final response
+    deactivate root_agent

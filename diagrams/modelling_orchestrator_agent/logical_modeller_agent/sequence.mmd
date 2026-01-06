@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant ParentAgent as all_model_agent
+    participant LogicalAgent as logical_modeller_agent
+    participant SearchTools as Search Tools
+    actor User
+
+    ParentAgent->>LogicalAgent: 1. "Create Logical Data Model"
+    activate LogicalAgent
+
+    note over LogicalAgent, SearchTools: 2. Agent uses context variables (e.g., conceptual_data_model) and calls all search tools in parallel to gather information.
+
+    LogicalAgent->>SearchTools: 3a. call_blueprint_search(...)
+    LogicalAgent->>SearchTools: 3b. call_ddl_search(...)
+    LogicalAgent->>SearchTools: 3c. call_google_search(...)
+    LogicalAgent->>SearchTools: 3d. call_user_responses_search(...)
+    LogicalAgent->>SearchTools: 3e. call_user_rule_search(...)
+    LogicalAgent->>SearchTools: 3f. call_bq_best_prac_search(...)
+    LogicalAgent->>SearchTools: 3g. extract_from_sql_queries(...)
+    
+    activate SearchTools
+    SearchTools-->>LogicalAgent: 4. Return search results
+    deactivate SearchTools
+    
+    note right of LogicalAgent: 5. Agent synthesizes all inputs (context variables, search results) and generates the Logical Model artifact.
+
+    LogicalAgent-->>User: 6. "Here is the generated Logical Data Model. Please review."
+    
+    LogicalAgent->>LogicalAgent: 7. Calls 'save_output' tool to save the generated artifact to a file (e.g., logical_data_model.csv).
+    
+    alt User provides feedback by uploading a file
+        User->>LogicalAgent: 8a. Uploads modified file.
+        LogicalAgent->>LogicalAgent: 9a. Calls 'read_input' tool to process the uploaded file as the new source of truth.
+    else User provides verbal go-ahead
+        User->>LogicalAgent: 8b. "Looks good, proceed."
+    end
+
+    LogicalAgent-->>ParentAgent: 10. Returns final result and completion status.
+    deactivate LogicalAgent

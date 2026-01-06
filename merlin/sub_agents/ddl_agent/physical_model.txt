@@ -1,0 +1,295 @@
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_DATE`	
+(	
+  SK_DATE DATE NOT NULL,
+  date_actual DATE NOT NULL	,
+  day_of_week INT64 NOT NULL,	
+  day_name STRING NOT NULL	,
+  month_actual INT64 NOT NULL,	
+  month_name STRING NOT NULL	,
+  quarter_actual INT64 NOT NULL,	
+  quarter_name STRING NOT NULL	,
+  year_actual INT64 NOT NULL	,
+  week_of_year INT64 NOT NULL,
+  day_of_year INT64 NOT NULL,
+  is_weekend BOOL NOT NULL,
+  PRIMARY KEY (SK_DATE) NOT ENFORCED
+)	
+CLUSTER BY year_actual,month_actual
+OPTIONS(	
+  description="TIME - Date (Dimension Table)"	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_TIME`	
+(	
+  SK_TIME STRING NOT NULL,
+  time_actual TIME NOT NULL,	
+  hour_24 INT64 NOT NULL,	
+  minute_actual INT64 NOT NULL,	
+  second_actual INT64 NOT NULL,	
+  am_pm STRING NOT NULL,	
+  PRIMARY KEY (SK_TIME) NOT ENFORCED	
+)	
+CLUSTER BY hour_24	
+OPTIONS(	
+  description="TIME - Time of Day (Dimension Table)"	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_INVOICE`	
+(	
+  SK_INVOICE STRING NOT NULL,
+  invoice_month STRING NOT NULL,	
+  invoice_year INT64 NOT NULL	,
+  invoice_quarter INT64 NOT NULL,	
+  invoice_month_name STRING NOT NULL,
+  PRIMARY KEY (SK_INVOICE) NOT ENFORCED
+)	
+CLUSTER BY invoice_year,invoice_month
+OPTIONS(	
+  description="FINANCIAL TRANSACTION - Invoice (Dimension Table)"	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_ORGANIZATION`	
+(	
+  SK_ORGANIZATION STRING NOT NULL,
+  SCD_EFFECTIVE_FROM_DATE DATE NOT NULL,	
+  SCD_EFFECTIVE_TO_DATE DATE,	
+  SCD_CURRENT_FLAG STRING NOT NULL,	
+  project_id STRING NOT NULL,	
+  project_number INT64,	
+  project_name STRING	,
+  billing_account_id STRING NOT NULL	,
+  ancestry_numbers STRING	,
+  project_ancestor_sk STRING,	
+  ancestor_resource_name STRING	,
+  ancestor_display_name STRING	,
+  PRIMARY KEY (SK_ORGANIZATION) NOT ENFORCED	
+)	
+PARTITION BY SCD_EFFECTIVE_FROM_DATE	
+CLUSTER BY project_id,billing_account_id
+OPTIONS(	
+  description="ORGANIZATION - Organization/Account Profile (Dimension Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 3650 DAY)
+  require_partition_filter=TRUE	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_PRODUCT`	
+(	
+  SK_PRODUCT STRING NOT NULL	,
+  SCD_EFFECTIVE_FROM_DATE DATE NOT NULL	,
+  SCD_EFFECTIVE_TO_DATE DATE	,
+  SCD_CURRENT_FLAG STRING NOT NULL	,
+  service_sku_id STRING NOT NULL	,
+  service_id STRING	,
+  service_description STRING NOT NULL	,
+  sku_id STRING NOT NULL	,
+  sku_description STRING NOT NULL	,
+  destination_migration_mapping STRING	,
+  pricing_unit STRING	,
+  pricing_unit_description STRING	,
+  business_entity_name STRING	,
+  pricing_as_of_time TIMESTAMP,	
+  product_taxonomy_id STRING NOT NULL	,
+  product_taxonomy_level STRING	,
+  product_taxonomy_value STRING	,
+  PRIMARY KEY (SK_PRODUCT) NOT ENFORCED	
+)	
+PARTITION BY SCD_EFFECTIVE_FROM_DATE	
+CLUSTER BY service_sku_id,sku_id
+OPTIONS(	
+  description="PRODUCT - Product/Service Catalog (Dimension Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 3650 DAY)
+  require_partition_filter=TRUE	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_RESOURCE`	
+(	
+  SK_RESOURCE STRING NOT NULL,	
+  SCD_EFFECTIVE_FROM_DATE DATE NOT NULL	,
+  SCD_EFFECTIVE_TO_DATE DATE	,
+  SCD_CURRENT_FLAG STRING NOT NULL	,
+  resource_id STRING NOT NULL	,
+  resource_name STRING	,
+  resource_global_name STRING	,
+  project_id STRING NOT NULL	,
+  location STRING	,
+  region STRING	,
+  zone STRING	,
+  country STRING	,
+  service_id STRING,	
+  PRIMARY KEY (SK_RESOURCE) NOT ENFORCED	
+)	
+PARTITION BY SCD_EFFECTIVE_FROM_DATE	
+CLUSTER BY resource_id,project_id
+OPTIONS(	
+  description="RESOURCE - Resource/Asset Inventory (Dimension Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 3650 DAY)
+  require_partition_filter=TRUE	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_PRICING`	
+(	
+  SK_PRICING STRING NOT NULL	,
+  SCD_EFFECTIVE_FROM_DATE DATE NOT NULL	,
+  SCD_EFFECTIVE_TO_DATE DATE	,
+  SCD_CURRENT_FLAG STRING NOT NULL	,
+  billing_account_price_id STRING NOT NULL	,
+  billing_account_id STRING	,
+  sku_id STRING	,
+  pricing_as_of_time TIMESTAMP	,
+  currency_conversion_rate BIGNUMERIC NOT NULL	,
+  account_currency_code STRING	,
+  price_reason STRING	,
+  discount_percent BIGNUMERIC	,
+  discount_percent_fixed_date DATE	,
+  discount_migrated_from STRING	,
+  aggregation_level STRING	,
+  aggregation_interval STRING,	
+  account_price_tier_id STRING NOT NULL	,
+  start_usage_amount BIGNUMERIC	,
+  pricing_unit_quantity BIGNUMERIC,	
+  usd_amount BIGNUMERIC	,
+  account_currency_amount BIGNUMERIC	,
+  consumption_model_id_sk STRING NOT NULL	,
+  consumption_model_id STRING	,
+  model_display_name STRING	,
+  model_description STRING	,
+  rule_price_reason STRING	,
+  rule_discount_percent BIGNUMERIC	,
+  PRIMARY KEY (SK_PRICING) NOT ENFORCED	
+)	
+PARTITION BY SCD_EFFECTIVE_FROM_DATE	
+CLUSTER BY billing_account_price_id,sku_id
+OPTIONS(	
+  description="PRICING - Pricing Rule Header (Dimension Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 3650 DAY)
+  require_partition_filter=TRUE	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.DIM_LOCATION`	
+(	
+  SK_LOCATION STRING NOT NULL	,
+  geo_taxonomy_id STRING NOT NULL	,
+  service_sku_id STRING NOT NULL	,
+  geo_type STRING NOT NULL	,
+  regions STRING	,
+  PRIMARY KEY (SK_LOCATION) NOT ENFORCED	
+)	
+CLUSTER BY geo_taxonomy_id,service_sku_id
+OPTIONS(	
+  description="LOCATION - Geography & Zone (Dimension Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 3650 DAY)
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.BRDG_RESOURCE_TAG`	
+(	
+  SK_RESOURCE_TAG_BRIDGE STRING NOT NULL	,
+  SK_RESOURCE STRING NOT NULL	,
+  resource_id STRING NOT NULL	,
+  resource_tag_sk STRING	,
+  tag_key STRING NOT NULL	,
+  tag_value STRING NOT NULL,	
+  tag_namespace STRING	,
+  tag_inherited STRING	,
+  resource_label_sk STRING,	
+  label_key STRING NOT NULL	,
+  label_value STRING NOT NULL,	
+  PRIMARY KEY (SK_RESOURCE_TAG_BRIDGE) NOT ENFORCED	,
+  FOREIGN KEY (SK_RESOURCE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_RESOURCE`(SK_RESOURCE) NOT ENFORCED	
+)	
+CLUSTER BY SK_RESOURCE,tag_key
+OPTIONS(	
+  description="RESOURCE - Resource Tags/Labels (Bridge Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 1825 DAY)
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.FACT_DAILY_USAGE`	
+(	
+  SK_DAILY_USAGE STRING NOT NULL,	
+  SK_ORGANIZATION STRING NOT NULL,	
+  SK_PRODUCT STRING NOT NULL	,
+  SK_RESOURCE STRING NOT NULL	,
+  SK_PRICING STRING NOT NULL	,
+  SK_LOCATION STRING NOT NULL	,
+  SK_DATE DATE NOT NULL	,
+  SK_TIME TIME NOT NULL	,
+  SK_INVOICE STRING NOT NULL	,
+  TOTAL_COST BIGNUMERIC NOT NULL,	
+  TOTAL_CREDIT_AMOUNT BIGNUMERIC,	
+  billing_trans_ledger_sk STRING,	
+  billing_account_price_id STRING,	
+  project_id STRING	,
+  service_sku_id STRING	,
+  usage_start_time TIMESTAMP NOT NULL	,
+  usage_end_time TIMESTAMP	,
+  export_time TIMESTAMP	,
+  cost_type STRING NOT NULL	,
+  transaction_type STRING	,
+  seller_name STRING	,
+  invoice_month STRING NOT NULL	,
+  currency STRING	,
+  currency_conversion_rate BIGNUMERIC NOT NULL	,
+  cost BIGNUMERIC NOT NULL	,
+  cost_at_list BIGNUMERIC	,
+  cost_effective_price BIGNUMERIC	,
+  usage_amount BIGNUMERIC NOT NULL,	
+  usage_unit STRING	,
+  usage_amt_in_pricing_units BIGNUMERIC	,
+  pricing_unit STRING	,
+  adjustment_id STRING,	
+  adjustment_description STRING	,
+  adjustment_mode STRING	,
+  adjustment_type STRING	,
+  trans_credit_item_sk STRING	,
+  credit_name STRING	,
+  credit_full_name STRING,	
+  credit_type STRING NOT NULL	,
+  credit_amount BIGNUMERIC	,
+  credit_id STRING	,
+  PRIMARY KEY (SK_DAILY_USAGE) NOT ENFORCED	,
+  FOREIGN KEY (SK_ORGANIZATION) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_ORGANIZATION`(SK_ORGANIZATION) NOT ENFORCED	,
+  FOREIGN KEY (SK_PRODUCT) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_PRODUCT`(SK_PRODUCT) NOT ENFORCED	,
+  FOREIGN KEY (SK_RESOURCE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_RESOURCE`(SK_RESOURCE) NOT ENFORCED,	
+  FOREIGN KEY (SK_PRICING) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_PRICING`(SK_PRICING) NOT ENFORCED	,
+  FOREIGN KEY (SK_LOCATION) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_LOCATION`(SK_LOCATION) NOT ENFORCED,	
+  FOREIGN KEY (SK_DATE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_DATE`(SK_DATE) NOT ENFORCED	,
+  FOREIGN KEY (SK_TIME) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_TIME`(SK_TIME) NOT ENFORCED	,
+  FOREIGN KEY (SK_INVOICE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_INVOICE`(SK_INVOICE) NOT ENFORCED	
+)	
+PARTITION BY DATE(usage_start_time)	
+CLUSTER BY SK_ORGANIZATION,SK_PRODUCT
+OPTIONS(	
+  description="COST/USAGE - Usage Line Item (Fact Table)",	
+  expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(),INTERVAL 1825 DAY)
+  require_partition_filter=TRUE	
+);	
+	
+CREATE TABLE `$PROJECT_ID.$DATASET_ID.FACT_MONTHLY_AGGREGATE`	
+(	
+  SK_MONTHLY_AGGREGATE STRING NOT NULL	,
+  SK_ORGANIZATION STRING NOT NULL	,
+  SK_PRODUCT STRING NOT NULL	,
+  SK_PRICING STRING NOT NULL	,
+  SK_LOCATION STRING NOT NULL	,
+  SK_DATE DATE NOT NULL	,
+  SK_INVOICE STRING NOT NULL	,
+  MONTHLY_TOTAL_COST BIGNUMERIC NOT NULL,
+  MONTHLY_TOTAL_CREDIT BIGNUMERIC	,
+  invoice_month STRING NOT NULL	,
+  cost_type STRING NOT NULL	,
+  project_id STRING NOT NULL,	
+  service_sku_id STRING NOT NULL	,
+  billing_account_price_id STRING	,
+  PRIMARY KEY (SK_MONTHLY_AGGREGATE) NOT ENFORCED	,
+  FOREIGN KEY (SK_ORGANIZATION) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_ORGANIZATION`(SK_ORGANIZATION) NOT ENFORCED	,
+  FOREIGN KEY (SK_PRODUCT) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_PRODUCT`(SK_PRODUCT) NOT ENFORCED	,
+  FOREIGN KEY (SK_PRICING) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_PRICING`(SK_PRICING) NOT ENFORCED	,
+  FOREIGN KEY (SK_LOCATION) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_LOCATION`(SK_LOCATION) NOT ENFORCED,	
+  FOREIGN KEY (SK_DATE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_DATE`(SK_DATE) NOT ENFORCED	,
+  FOREIGN KEY (SK_INVOICE) REFERENCES `$PROJECT_ID.$DATASET_ID.DIM_INVOICE`(SK_INVOICE) NOT ENFORCED	
+)	
+PARTITION BY SK_DATE	
+CLUSTER BY SK_ORGANIZATION,SK_PRODUCT
+OPTIONS(	
+  description="COST/USAGE - Usage Line Item (Aggregate) (Fact Table)",	
+  require_partition_filter=TRUE	
+);

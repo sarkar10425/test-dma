@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant ParentAgent as all_model_agent
+    participant ModellerAgent as entity_modeller_agent
+    participant SearchTools as Search Tools
+    actor User
+
+    ParentAgent->>ModellerAgent: 1. "Create Entity Classification for..."
+    activate ModellerAgent
+
+    note over ModellerAgent, SearchTools: The agent calls multiple search tools in parallel to gather context.
+
+    ModellerAgent->>SearchTools: 2a. call_blueprint_search(...)
+    ModellerAgent->>SearchTools: 2b. call_ddl_search(...)
+    ModellerAgent->>SearchTools: 2c. call_google_search(...)
+    ModellerAgent->>SearchTools: 2d. call_user_responses_search(...)
+    ModellerAgent->>SearchTools: 2e. call_user_rule_search(...)
+    ModellerAgent->>SearchTools: 2f. call_bq_best_prac_search(...)
+    
+    activate SearchTools
+    SearchTools-->>ModellerAgent: 3. Return search results
+    deactivate SearchTools
+    
+    note right of ModellerAgent: 4. Agent synthesizes search results and generates the model artifact (e.g., Entity Classification table).
+
+    ModellerAgent-->>User: 5. "Here is the generated Entity Classification. Please review."
+    
+    ModellerAgent->>ModellerAgent: 6. Calls 'save_output' tool to save the generated artifact.
+    
+    alt User provides feedback by uploading a file
+        User->>ModellerAgent: 7a. Uploads modified file.
+        ModellerAgent->>ModellerAgent: 8a. Calls 'read_input' tool to process the uploaded file.
+        note right of ModellerAgent: 9a. Agent now has updated model from user.
+    else User provides verbal go-ahead
+        User->>ModellerAgent: 7b. "Looks good, proceed."
+    end
+
+    ModellerAgent-->>ParentAgent: 10. Returns final result and completion status.
+    deactivate ModellerAgent

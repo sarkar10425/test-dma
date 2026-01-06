@@ -1,0 +1,15 @@
+|TABLE NAME|ENTITY|SUB-ENTITY|TABLE TYPE|SCD TYPE|PK ONLY|FK ONLY|NEW/EXISTING|CREATION METHOD|
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+|Account_SKU_Price_Rule|PRICING|Pricing Rule Header|Master Table|SCD Type 2|billing_account_price_id|-|Existing Source||
+|Account_Price_Tier_Table|PRICING|Pricing Rule Details|Data Table|No SCD|account_price_tier_id|billing_account_price_id|Existing Source||
+|Consumption_Model_Rule_Table|PRICING|Contract/Discount Model|Data Table|SCD Type 2|consumption_model_id_sk|billing_account_price_id|Existing Source||
+|Transaction_Credit_Item_Table|COST/USAGE|Credit Item|Data Table|No SCD|trans_credit_item_sk|billing_trans_ledger_sk|Existing Source||
+|Billing_Transaction_Ledger_Table|COST/USAGE|Usage Line Item|Data Table|No SCD|billing_trans_ledger_sk|project_id, service_sku_id|Existing Source||
+|Project_Profile_Table|ORGANIZATION|Organizational/Account Profile|Master Table|SCD Type 2|project_id|-|Existing Source||
+|Project_Ancestor_Node_Table|ORGANIZATION|Organizational Hierarchy|Data Table|SCD Type 2|project_ancestor_sk|project_id|Existing Source||
+|Service_SKU_Table|PRODUCT|Product/Service Catalog|Master Table|SCD Type 2|service_sku_id|-|Existing Source||
+|Product_Taxonomy_Table|PRODUCT|Product/Service Catalog|Data Table|No SCD|product_taxonomy_id|service_sku_id|Existing Source||
+|Geo_Taxonomy_Table|LOCATION|Geography & Zone|Data Table|No SCD|geo_taxonomy_id|service_sku_id|Existing Source||
+|Resource_Inventory_Table|RESOURCE|Resource/Asset Inventory|Master Table|SCD Type 2|resource_id|-|Existing Source||
+|Resource_Tag_Table|RESOURCE|Resource Tags/Labels|Data Table|No SCD|resource_tag_sk|resource_id|Existing Source||
+|resource_label_table|RESOURCE|Resource Tags/Labels|Data Table|No SCD|resource_label_sk|resource_id|Existing Source||

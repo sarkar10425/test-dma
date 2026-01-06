@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant ParentAgent as all_model_agent
+    participant ConceptualAgent as conceptual_modeller_agent
+    participant SearchTools as Search Tools
+    actor User
+
+    ParentAgent->>ConceptualAgent: 1. "Create Conceptual Data Model"
+    activate ConceptualAgent
+
+    note over ConceptualAgent, SearchTools: 2. Agent uses context variables (e.g., entity_data_model) and calls search tools in parallel to gather information.
+
+    ConceptualAgent->>SearchTools: 3a. call_blueprint_search(...)
+    ConceptualAgent->>SearchTools: 3b. call_user_responses_search(...)
+    note right of SearchTools: Other tools like ddl_search, google_search, etc., are also available and used as needed.
+    
+    activate SearchTools
+    SearchTools-->>ConceptualAgent: 4. Return search results
+    deactivate SearchTools
+    
+    note right of ConceptualAgent: 5. Agent synthesizes all inputs (context variables, search results) and generates the Conceptual Model artifact.
+
+    ConceptualAgent-->>User: 6. "Here is the generated Conceptual Data Model. Please review."
+    
+    ConceptualAgent->>ConceptualAgent: 7. Calls 'save_output' tool to save the generated artifact to a file (e.g., conceptual_data_model.txt).
+    
+    alt User provides feedback by uploading a file
+        User->>ConceptualAgent: 8a. Uploads modified file.
+        ConceptualAgent->>ConceptualAgent: 9a. Calls 'read_input' tool to process the uploaded file as the new source of truth.
+    else User provides verbal go-ahead
+        User->>ConceptualAgent: 8b. "Looks good, proceed."
+    end
+
+    ConceptualAgent-->>ParentAgent: 10. Returns final result and completion status.
+    deactivate ConceptualAgent

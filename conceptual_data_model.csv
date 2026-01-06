@@ -1,0 +1,41 @@
+*PART1. Model Selection and Structure*
+|Component |Rationale |
+|:---|:---|
+|Model Type |"**Star Schema / Dimensional Model:** Based on explicit user preference for a ""Dimension-Fact / Metric-Based Model designed for analytical performance"" and the industry blueprint for a Cloud FinOps Data Model, a Star Schema will provide optimal performance for analytical queries and dashboard visualization in BigQuery. "|
+|Industry Alignment |"**Cloud FinOps Data Model Blueprint:** The model aligns with the provided Cloud FinOps blueprint, standardizing multi-cloud cost and usage data. It incorporates ""Conformed Dimensions"" to unify vendor-specific terminology, critical for cross-cloud cost allocation and consistent reporting for Sabre Cloud Services - Global FinOps Office. "|
+|Granularity |"**Atomic Billing Line-Item:** The fact table will be at the individual billing line-item level, directly supporting the requirement for ""atomic billing line-item level for cost data and at least hourly time-series data for utilization data."" This enables detailed analysis and reconciliation. "|
+|Integrity Guardrail |"**Bridge Tables for M:M Relationships:** To prevent metric duplication and ""grain explosion"" from multi-valued attributes (Labels, Tags, Credits), Bridge Tables will be used for many-to-many relationships, particularly for resource labels and tags. For credits, which are also identified as a breakage point, they will be handled either as a separate fact or carefully integrated into the main fact via complex measures to preserve grain integrity. "|
+
+Data Architecture Hierarchy: Fact vs. Dimension vs. Bridge vs. Reference
+|Table Type |Primary Purpose |Relationship Type|Grain Integrity Rule |Example Columns |
+|:---|:---|:---|:---|:---|
+|Fact Table |Records business events/metrics. |N:1 to Dimensions|"The ""Source of Truth"" for totals. Do not split this grain by attributes that aren't 1:1."|COST, USAGE_AMOUNT, USAGE_START_TIME|
+|Dimension Table|"Descriptive context (The ""Who/What"")."|1:M to Fact |Grain Handler: Primary key must be unique to prevent Fact duplication. |PROJECT_NAME, RESOURCE_ID, REGION |
+|Bridge Table |Resolves M:M (Many-to-Many). |M:M (Fact to Dim)|Grain Risk: Joining this directly to a Fact breaks the grain and causes fan-out. |RESOURCE_ID, LABEL_KEY, LABEL_VALUE |
+|Reference Table|Standardized lookups/logic. |1:M to Fact/Dim |Look-up only: Should never increase the row count of the table it is joined to. |SKU_ID, UNIT_PRICE, EFFECTIVE_DATE |
+
+*PART2. Blueprint Mapping: Tables(Fact & Dimensions)*
+|Target Fact Table|Source Table Mapping (Source DDL)|Key Metrics Supported |Grain (Example) |Grain Impact Note |
+|:---|:---|:---|:---|:---|
+|FACT_DAILY_USAGE |`Billing_Transaction_Ledger_Table`, `Transaction_Credit_Item_Table`|Total Monthly Cloud Spend, Actual vs. Budget Variance, Unit Cost Metrics, Reservation/Commitment Coverage Rate, Cost by K8s Namespace/Workload, Total Costs, Costs by Type, Costs by Resource |1 row per billing line-item (Cost, Credit) |Consolidates core cost and credit events. Credits carefully managed to avoid duplication. |
+
+|Target Dimension Table|Source Table Mapping |SCD Type |Grain (Example) |Relationship to Fact |
+|:---|:---|:---|:---|:---|
+|DIM_SKU |`Service_SKU_Table`, `Product_Taxonomy_Table`|SCD Type 1 (See SCD Usage Validation)|1 row per unique SKU ID. |M:1 (Safe to denormalize). |
+|DIM_RESOURCE |`Resource_Inventory_Table`|SCD Type 1 (See SCD Usage Validation)|1 row per unique Resource ID. |M:1 (Safe to denormalize). |
+|DIM_PROJECT |`Project_Profile_Table`, `Project_Ancestor_Node_Table`|SCD Type 1 (See SCD Usage Validation)|1 row per unique Project ID. |M:1 (Safe to denormalize). |
+|DIM_GEOGRAPHY |`Geo_Taxonomy_Table`|No SCD |1 row per unique Geographical region/zone. |M:1 (Safe to denormalize). |
+|DIM_PRICING |`Consumption_Model_Rule_Table`, `Account_SKU_Price_Rule`|SCD Type 2 |1 row per unique Pricing Rule per effective date. |M:1 (Safe to denormalize). |
+
+|Target Reference Table|Source Table Mapping (Source DDL)|SCD Type Requirement|Grain (Example) |Purpose / Grain Protection |
+|:---|:---|:---|:---|:---|
+|BRDG_RESOURCE_TAG_LABEL |`Resource_Tag_Table`, `Resource_Label_Table`|No SCD |1 row per Resource ID per Tag/Label Key-Value pair. |Resolves M:M relationship between Resources and their Tags/Labels without duplicating Fact costs. Supports flexible filtering and grouping by tags. |
+
+*PART3. Requirement Integration*
+|Non-Functional Requirement|Implementation Strategy in DDM |
+|:---|:---|
+|Query Performance SLO (sub-20s)|Achieved via Star Schema (dimensional modeling) as requested by the user, and selective denormalization for frequently joined dimensions (e.g., Project, SKU, Resource into the fact, where 1:1 or M:1). This is supported by KPI SQL analysis showing frequent joins to these entities. Bridge tables are used for M:M relationships to prevent grain explosion while still allowing complex filtering. |
+|RLS (Row-Level Security) |Implemented on `DIM_PROJECT` and/or an organizational hierarchy dimension. BigQuery RLS policies will restrict access to Fact tables based on the user's mapped `business_unit` or `workload` attributes within these dimensions, addressing the specific user requirement. |
+|SCD Type 2 Tracking |Applied to `DIM_PRICING` to preserve cost context over time. Although the user requested SCD Type 2 for `DIM_SKU`, `DIM_RESOURCE`, and `DIM_PROJECT` (for organizational mappings like `business_unit`, `workload`, `Environment`) for historical cost accountability, the KPI SQL analysis does not show temporal range filtering (e.g., `BETWEEN start_date AND end_date`) on these entities. To prioritize query speed and reduce complexity, these dimensions are initially modeled as SCD Type 1 or No SCD. A discussion with the user is recommended to reconcile the business need for historical tracking with performance implications. |
+|SCD Usage Validation |"**Conflict Identified:** The user's stated requirement for SCD Type 2 on `DIM_SKU`, `DIM_RESOURCE`, and `DIM_PROJECT` (for organizational context) to ensure historical cost accountability conflicts with the mandatory guardrail: ""If the JOINCONDITIONS or FILTERCOLUMNS for that entity do not involve temporal ranges... it *MUST* be modeled as SCD Type 1 or No SCD..."". The provided KPI SQL queries do not demonstrate temporal range filters on these tables. Therefore, `DIM_SKU`, `DIM_RESOURCE`, and `DIM_PROJECT` are proposed as SCD Type 1 to optimize query performance, while `DIM_PRICING` retains SCD Type 2 as per blueprint and explicit user requirement where temporal sensitivity is likely for pricing changes. "|
+|Granularity (Hourly/Line-Item)|The model retains the atomic billing line-item in `FACT_DAILY_USAGE`, which is the lowest required level for cost data. This granular fact table will link to a dedicated `DIM_TIME` (implicitly derived from timestamps in fact) to support hourly time-series analysis for utilization data, meeting the specified requirements. |

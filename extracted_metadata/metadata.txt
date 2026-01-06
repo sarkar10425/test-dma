@@ -1,0 +1,150 @@
+### Blueprint Information
+
+**Title**: Data and Analytics - Data-Driven Business Models: A Blueprint for Innovation
+**Concept Name**: DDBM-Innovation Blueprint
+**Authors**: Josh Brownlow, Mohamed Zaki, Andy Neely, Florian Urmetzer
+**Publication Details**:
+*   **Type**: Working Paper
+*   **Date**: February 2015
+*   **Publisher**: Cambridge Service Alliance
+*   **Copyright**: © Cambridge Service Alliance 2015
+**Summary Purpose**: The DDBM-Innovation Blueprint is an integrated framework designed to help organizations become data-driven by enabling them to construct their own Data-Driven Business Model (DDBM) in coordination with six fundamental questions for a data-driven business. It provides a research-based guide for existing businesses to create and implement their own DDBMs, aiding in identifying and mitigating inhibitors to effective DDBM construction and implementation.
+**Methodology**:
+*   **Development**: Academically secured, research-grounded, and industry-focused constructs. Concepts developed using publicly available company documents.
+*   **Validation**: Achieved through interviews, surveys, and a workshop with data-oriented company representatives. Further validation obtained by analyzing current data-driven businesses and their DDBMs against the blueprint and corresponding questions.
+*   **Research Approach**: To create an effective guide for businesses to implement DDBMs, the main constituents and operations of DDBMs in start-ups and established businesses were identified. Organizations were chosen randomly through literature reference frequency. Established businesses were selected from five sectors (finance, insurance, publishing, retail, telecoms), and start-up samples were taken from AngelList, focusing on 'big data' or 'big data analytics' categories.
+**Six Fundamental Questions for DDBM**:
+1.  What do we want to achieve by using big data? (Target Outcome)
+2.  What is our desired offering? (Offering)
+3.  What data do we require and how are we going to acquire it? (Data Source)
+4.  In what ways are we going to process and apply this data? (Key Activities)
+5.  How are we going to monetize it? (Revenue Model)
+6.  What are the barriers to us accomplishing our goal? (Inhibitors)
+**Managerial Implications**:
+*   Existing businesses can follow a step-by-step process to construct their own DDBM, centered around their desired outcomes, organization dynamics, resources, skills, and business sector.
+*   Businesses can identify common inhibitors to constructing and implementing an effective DDBM within their own organization and plan to mitigate them.
+*   Further inspiration and guidance can be gained by studying examples of current data-driven businesses and their DDBMs, as outlined in Table 1, and by conducting their own research for aligned DDBM examples.
+**Inhibitors**:
+*   **Description**: Barriers to accomplishing DDBM goals, color-coded and ranked from severe (red) to minor (green) based on frequency and severity as perceived by 41 strategy and data-oriented elite interviewees.
+*   **Examples from Table 1**:
+    *   Cultural problems, value perception of a DDBM (e.g., Zara)
+    *   Data privacy obstacles, cultural problems (e.g., AT&T)
+    *   Cultural problems, value perception, personnel issues (e.g., The New York Times)
+    *   Data availability and accessibility, departmental collaboration issues (e.g., ING Direct)
+    *   Data quality and integrity, legal obstacles (e.g., Goldman Sachs)
+    *   Data quality and integrity issues (e.g., Swarmly, Next Big Sound)
+    *   Legal challenges (e.g., Gild)
+    *   Data accessibility and integrity (e.g., Welovroi)
+    *   Cultural problems, data privacy obstacles (e.g., FarmLogs)
+**Data Sources**:
+*   **Types Identified**: Free available data, Customer-provided data, Existing data, Acquired data, Self-generated data, External data, Internal data
+*   **Utilization by Established Businesses**: Customer-provided and acquired data were utilized by 80% of analyzed businesses. Self-generated and existing data utilization was slightly lower at 75%. Free available data was the least exploited, used by 60%.
+*   **Significance by Sector**:
+    *   **Telecommunications**: Considers self-generated data most significant, with particular emphasis.
+    *   **Retail**: Considers self-generated data most significant, with particular emphasis.
+    *   **Financial Services**: Considers self-generated data most significant.
+    *   **All Sectors**: Customer-provided data is utilized and regarded as important across all analyzed sectors.
+**Offerings**:
+*   **Types**: Raw data (set of facts without attached meaning), Information or knowledge (interpreted data, output of analytics), Non-data product or service (value proposition enhanced by data)
+*   **Established Organizations Offerings**:
+    *   **Non-data product or service**: 100% of analyzed established organizations had this offering.
+    *   **Information and knowledge**: 24% of analyzed established organizations had this offering.
+    *   **Data as offering**: 20% of analyzed established organizations had this offering.
+    *   **Dominant by Sector**:
+        *   **Retail/Insurance**: 100% non-data product or service.
+        *   **Publishing**: 48% non-data product or service, over 35% data as an offering.
+        *   **Finance**: 85% non-data product or service.
+        *   **Telecommunications**: 50% data as an offering.
+*   **Start-up Offerings**: Tend to create entirely new offerings. A noteworthy predominance of B2B business models. Majority offer information or knowledge, often web-based.
+**Target Customers**:
+*   **Segmentation**: Businesses (B2B), Individual consumers (B2C), Consumer to Consumer (C2C) - facilitating use of customers to acquire further customers
+*   **Established Organizations Targeting**:
+    *   **B2C**: Dominant target customer for 75% of analyzed companies.
+    *   **B2B**: Targeted by 50% of established organizations.
+    *   **C2C**: Utilized least, with 20% referencing this activity.
+    *   **Dominant by Sector**:
+        *   **Retail/Insurance**: B2C dominant (76% and 54% respectively).
+        *   **Publishing**: B2B referenced by 61%. C2C <20%.
+        *   **Finance**: B2B referenced by 72%.
+        *   **Telecommunications**: C2C dominant (45% of references).
+**Source Document Path**: `gs://modelling_agent_inputs_dev/bq_cost_data_input_data_model/blueprint/blueprint.pdf`
+
+---
+
+### BigQuery Best Practices
+
+**1. Performance Optimization**
+*   **Optimize Query Performance**
+    *   Avoid SELECT \* and select only necessary columns to reduce the amount of data processed.
+    *   Filter data as early as possible using WHERE clauses to reduce scanned data.
+    *   Use clustering and partitioning for large tables to improve query performance and reduce cost.
+    *   Avoid data anti-patterns like self-joins, cross-joins, and expensive regular expressions when possible.
+    *   Utilize materialized views for frequently accessed and complex queries to pre-compute results.
+    *   Cache query results by saving results to a new table or enabling cached results for repeated queries.
+    *   Optimize join order, placing the largest table last and filtering it first.
+    *   Use approximate aggregate functions (e.g., APPROX\_COUNT\_DISTINCT) when exact counts are not critical for faster results.
+    *   Monitor query execution plans and query history to identify bottlenecks and optimize.
+    *   Limit the number of concurrent queries if contention is observed.
+*   **Schema Design**
+    *   Use appropriate data types; for example, use DATE, TIMESTAMP, or INT64 instead of STRING when possible.
+    *   Denormalize data where appropriate to avoid complex joins and improve query performance, especially for analytics.
+    *   Consider nested and repeated fields (STRUCTs and ARRAYs) to represent hierarchical data and reduce table size.
+    *   Avoid over-partitioning or under-partitioning tables. Choose partitioning columns wisely based on query patterns.
+    *   Cluster tables on columns frequently used in WHERE clauses or JOIN conditions.
+*   **Data Ingestion and Storage**
+    *   Ingest data in larger batches rather than small, frequent insertions to optimize loading jobs.
+    *   Use Avro, Parquet, or ORC formats for data loading as they are column-oriented and often more efficient than CSV or JSON.
+    *   Consider using streaming inserts for near real-time data analysis, but be aware of associated costs and quotas.
+    *   Utilize partitioning and clustering at ingestion time to organize data for better query performance and cost.
+
+**2. Cost Optimization**
+*   **Query Cost Management**
+    *   Preview queries before running them to estimate the amount of data that will be processed.
+    *   Avoid SELECT \* and specify only the columns needed to minimize scanned data, directly impacting cost.
+    *   Partition and cluster tables to reduce the amount of data scanned by queries.
+    *   Use destination tables for query results if the same result set is queried repeatedly.
+    *   Utilize materialized views to pre-compute and store frequently accessed query results, reducing subsequent query costs.
+    *   Set cost controls and custom quotas at the project or user level to prevent unexpected spending.
+*   **Storage Cost Management**
+    *   Choose appropriate storage tiers; consider using long-term storage for infrequently accessed data.
+    *   Delete unnecessary tables or data.
+    *   Design schemas efficiently, using optimal data types and nested fields to reduce storage footprint.
+    *   Compress data before loading if possible, although BigQuery automatically handles compression.
+
+**3. Security and Data Governance**
+*   **Access Control**
+    *   Implement principle of least privilege using Identity and Access Management (IAM) roles.
+    *   Grant access at the dataset, table, or column level using authorized views and row-level security.
+    *   Audit BigQuery access and changes using Cloud Audit Logs.
+    *   Use Service Accounts for programmatic access and manage their permissions carefully.
+*   **Data Protection**
+    *   Encrypt data at rest and in transit. BigQuery encrypts data at rest by default.
+    *   Utilize Customer-Managed Encryption Keys (CMEK) for additional control over encryption keys.
+    *   Implement Data Loss Prevention (DLP) to scan and de-identify sensitive data.
+    *   Understand and comply with data residency requirements by selecting appropriate dataset locations.
+
+**4. Data Management and Organization**
+*   **Dataset and Project Organization**
+    *   Organize datasets logically within projects based on business units, data domains, or environments (e.g., dev, test, prod).
+    *   Use clear and consistent naming conventions for projects, datasets, tables, and columns.
+    *   Leverage project hierarchy and resource labels for better management and cost allocation.
+*   **Data Lifecycle Management**
+    *   Implement data retention policies to automatically delete old data.
+    *   Back up critical data, although BigQuery provides built-in durability. Consider table snapshots for point-in-time recovery.
+    *   Version control your schema changes using tools like data build tool (dbt) or similar.
+
+---
+
+### User Responses
+
+*   **Area**: Business Domain
+    *   **Question**: Please confirm the official name of the organization for which this data model is being developed.
+    *   **Answer**: Google
+*   **Area**: Business Domain
+    *   **Question**: What is the primary industry vertical of the customer?
+    *   **Answer**: FinOps
+*   **Area**: Business Domain
+    *   **Question**: What is the classification of the existing source data model (e.g., Application DB, Data Warehouse, Data Lake)?
+    *   **Answer**: Database
+
+**Source of User Responses**: `gs://modelling_agent_inputs_dev/bq_cost_data_input_data_model/questionnaire/user_questionnaire_responses.xlsx`

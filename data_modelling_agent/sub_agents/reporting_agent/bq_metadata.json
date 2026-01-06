@@ -1,0 +1,519 @@
+{
+  "model_name": "e_commerce_star_schema",
+  "description": "Dimensional data model for e-commerce analytics, optimized for BigQuery, tracking sales, customer acquisition, and lifetime value.",
+  "tables": [
+    {
+      "table_name": "Fact_Sales",
+      "table_type": "FACT",
+      "description": "Primary fact table, recording every individual item sold within an order. Most granular level for sales analysis.",
+      "grain": "One row per order item.",
+      "bigquery_optimizations": {
+        "partitioning": {
+          "field": "order_timestamp",
+          "type": "DAY"
+        },
+        "clustering": [
+          "customer_key",
+          "product_key",
+          "order_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "order_item_id",
+          "data_type": "STRING",
+          "description": "Unique identifier for the order item.",
+          "is_primary_key": true
+        },
+        {
+          "name": "order_id",
+          "data_type": "STRING",
+          "description": "Unique identifier for the overall order."
+        },
+        {
+          "name": "customer_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Customer.",
+          "is_foreign_key": true,
+          "references": "Dim_Customer.customer_key"
+        },
+        {
+          "name": "product_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Product.",
+          "is_foreign_key": true,
+          "references": "Dim_Product.product_key"
+        },
+        {
+          "name": "order_date_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Date (representing the date of the order).",
+          "is_foreign_key": true,
+          "references": "Dim_Date.time_key"
+        },
+        {
+          "name": "shipping_address_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Shipping_Address (the address used for shipping at the time of the order).",
+          "is_foreign_key": true,
+          "references": "Dim_Shipping_Address.shipping_address_key"
+        },
+        {
+          "name": "quantity",
+          "data_type": "INT64",
+          "description": "Number of units of the product sold in this item."
+        },
+        {
+          "name": "unit_price_at_sale",
+          "data_type": "NUMERIC",
+          "description": "Price per unit at the time of sale before any item-specific discounts."
+        },
+        {
+          "name": "item_sales_amount",
+          "data_type": "NUMERIC",
+          "description": "The total revenue for this specific item, calculated as (quantity * unit_price_at_sale) - discount_amount."
+        },
+        {
+          "name": "discount_amount",
+          "data_type": "NUMERIC",
+          "description": "Discount applied specifically to this item."
+        },
+        {
+          "name": "order_status",
+          "data_type": "STRING",
+          "description": "Status of the overall order (e.g., 'Completed', 'Pending', 'Cancelled')."
+        },
+        {
+          "name": "payment_method",
+          "data_type": "STRING",
+          "description": "Method used for payment (e.g., 'Credit Card', 'PayPal')."
+        },
+        {
+          "name": "shipping_cost",
+          "data_type": "NUMERIC",
+          "description": "Shipping cost associated with this item (or allocated portion of total order shipping)."
+        },
+        {
+          "name": "order_timestamp",
+          "data_type": "TIMESTAMP",
+          "description": "Full timestamp of the order, critical for time-based partitioning."
+        }
+      ]
+    },
+    {
+      "table_name": "Fact_Customer_Acquisition_LTV",
+      "table_type": "FACT",
+      "description": "Stores metrics directly related to customer acquisition and lifetime value, often calculated or attributed at the customer level over specific periods.",
+      "grain": "One row per customer per acquisition event or LTV calculation snapshot.",
+      "bigquery_optimizations": {
+        "clustering": [
+          "customer_key"
+        ]
+      },
+      "columns": [
+        {
+          "name": "customer_acquisition_key",
+          "data_type": "INT64",
+          "description": "Primary Key (Surrogate Key).",
+          "is_primary_key": true
+        },
+        {
+          "name": "customer_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Customer.",
+          "is_foreign_key": true,
+          "references": "Dim_Customer.customer_key"
+        },
+        {
+          "name": "acquisition_date_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Date (the date the customer was acquired).",
+          "is_foreign_key": true,
+          "references": "Dim_Date.time_key"
+        },
+        {
+          "name": "acquisition_channel",
+          "data_type": "STRING",
+          "description": "The marketing channel through which the customer was acquired (e.g., 'Organic Search', 'Paid Social')."
+        },
+        {
+          "name": "customer_acquisition_cost",
+          "data_type": "NUMERIC",
+          "description": "The cost incurred to acquire this specific customer."
+        },
+        {
+          "name": "lifetime_value_to_date",
+          "data_type": "NUMERIC",
+          "description": "The calculated Customer Lifetime Value up to a given calculation date. This can be a running sum or a snapshot."
+        },
+        {
+          "name": "ltv_calculation_date_key",
+          "data_type": "INT64",
+          "description": "Foreign Key to Dim_Date (the date when the LTV was calculated or last updated).",
+          "is_foreign_key": true,
+          "references": "Dim_Date.time_key"
+        }
+      ]
+    },
+    {
+      "table_name": "Dim_Customer",
+      "table_type": "DIMENSION",
+      "description": "Stores detailed information about each customer.",
+      "columns": [
+        {
+          "name": "customer_key",
+          "data_type": "INT64",
+          "description": "Primary Key (Surrogate Key).",
+          "is_primary_key": true
+        },
+        {
+          "name": "customer_id",
+          "data_type": "STRING",
+          "description": "Unique identifier from the source system."
+        },
+        {
+          "name": "first_name",
+          "data_type": "STRING",
+          "description": "Customer's first name."
+        },
+        {
+          "name": "last_name",
+          "data_type": "STRING",
+          "description": "Customer's last name."
+        },
+        {
+          "name": "email",
+          "data_type": "STRING",
+          "description": "Customer's email address."
+        },
+        {
+          "name": "phone_number",
+          "data_type": "STRING",
+          "description": "Customer's phone number."
+        },
+        {
+          "name": "registration_date",
+          "data_type": "DATE",
+          "description": "Date of customer registration."
+        },
+        {
+          "name": "last_login_date",
+          "data_type": "DATE",
+          "description": "Date of customer's last login."
+        },
+        {
+          "name": "loyalty_status",
+          "data_type": "STRING",
+          "description": "Customer's loyalty program status."
+        },
+        {
+          "name": "birth_date",
+          "data_type": "DATE",
+          "description": "Customer's birth date."
+        },
+        {
+          "name": "gender",
+          "data_type": "STRING",
+          "description": "Customer's gender."
+        },
+        {
+          "name": "city",
+          "data_type": "STRING",
+          "description": "Customer's city."
+        },
+        {
+          "name": "state",
+          "data_type": "STRING",
+          "description": "Customer's state/province."
+        },
+        {
+          "name": "country",
+          "data_type": "STRING",
+          "description": "Customer's country."
+        }
+      ]
+    },
+    {
+      "table_name": "Dim_Product",
+      "table_type": "DIMENSION",
+      "description": "Contains comprehensive attributes for each product.",
+      "columns": [
+        {
+          "name": "product_key",
+          "data_type": "INT64",
+          "description": "Primary Key (Surrogate Key).",
+          "is_primary_key": true
+        },
+        {
+          "name": "product_id",
+          "data_type": "STRING",
+          "description": "Unique identifier from the source system."
+        },
+        {
+          "name": "product_name",
+          "data_type": "STRING",
+          "description": "Name of the product."
+        },
+        {
+          "name": "sku",
+          "data_type": "STRING",
+          "description": "Stock Keeping Unit."
+        },
+        {
+          "name": "category",
+          "data_type": "STRING",
+          "description": "Primary product category."
+        },
+        {
+          "name": "subcategory",
+          "data_type": "STRING",
+          "description": "Secondary product category."
+        },
+        {
+          "name": "brand",
+          "data_type": "STRING",
+          "description": "Product brand."
+        },
+        {
+          "name": "color",
+          "data_type": "STRING",
+          "description": "Product color."
+        },
+        {
+          "name": "size",
+          "data_type": "STRING",
+          "description": "Product size."
+        },
+        {
+          "name": "current_list_price",
+          "data_type": "NUMERIC",
+          "description": "The current standard list price of the product."
+        },
+        {
+          "name": "product_status",
+          "data_type": "STRING",
+          "description": "Product status (e.g., 'Active', 'Discontinued')."
+        }
+      ]
+    },
+    {
+      "table_name": "Dim_Date",
+      "table_type": "DIMENSION",
+      "description": "A conformed dimension providing comprehensive time-based attributes for analytical purposes.",
+      "columns": [
+        {
+          "name": "time_key",
+          "data_type": "INT64",
+          "description": "Primary Key (Surrogate Key), typically in YYYYMMDD format.",
+          "is_primary_key": true
+        },
+        {
+          "name": "full_date",
+          "data_type": "DATE",
+          "description": "The actual date value."
+        },
+        {
+          "name": "day_of_week",
+          "data_type": "INT64",
+          "description": "Day of the week (1=Sunday, 7=Saturday)."
+        },
+        {
+          "name": "day_name",
+          "data_type": "STRING",
+          "description": "Full name of the day (e.g., 'Monday')."
+        },
+        {
+          "name": "day_of_month",
+          "data_type": "INT64",
+          "description": "Day of the month (1-31)."
+        },
+        {
+          "name": "day_of_year",
+          "data_type": "INT64",
+          "description": "Day of the year (1-366)."
+        },
+        {
+          "name": "week_of_year",
+          "data_type": "INT64",
+          "description": "Week number of the year."
+        },
+        {
+          "name": "month_number",
+          "data_type": "INT64",
+          "description": "Month number (1-12)."
+        },
+        {
+          "name": "month_name",
+          "data_type": "STRING",
+          "description": "Full name of the month (e.g., 'January')."
+        },
+        {
+          "name": "quarter",
+          "data_type": "INT64",
+          "description": "Quarter of the year (e.g., 1 for Q1)."
+        },
+        {
+          "name": "year",
+          "data_type": "INT64",
+          "description": "Year."
+        },
+        {
+          "name": "is_weekend",
+          "data_type": "BOOLEAN",
+          "description": "True if the date is a weekend, false otherwise."
+        },
+        {
+          "name": "is_holiday",
+          "data_type": "BOOLEAN",
+          "description": "True if the date is a holiday, false otherwise."
+        }
+      ]
+    },
+    {
+      "table_name": "Dim_Shipping_Address",
+      "table_type": "DIMENSION",
+      "description": "Stores details of shipping addresses. Assumed to capture the state at the time of transaction for the linked address.",
+      "columns": [
+        {
+          "name": "shipping_address_key",
+          "data_type": "INT64",
+          "description": "Primary Key (Surrogate Key).",
+          "is_primary_key": true
+        },
+        {
+          "name": "address_id",
+          "data_type": "STRING",
+          "description": "Unique identifier from the source system (if available)."
+        },
+        {
+          "name": "address_line1",
+          "data_type": "STRING",
+          "description": "First line of the address."
+        },
+        {
+          "name": "address_line2",
+          "data_type": "STRING",
+          "description": "Second line of the address (optional)."
+        },
+        {
+          "name": "city",
+          "data_type": "STRING",
+          "description": "City of the shipping address."
+        },
+        {
+          "name": "state",
+          "data_type": "STRING",
+          "description": "State/province of the shipping address."
+        },
+        {
+          "name": "zip_code",
+          "data_type": "STRING",
+          "description": "Shipping ZIP code."
+        },
+        {
+          "name": "country",
+          "data_type": "STRING",
+          "description": "Country of the shipping address."
+        },
+        {
+          "name": "latitude",
+          "data_type": "NUMERIC",
+          "description": "Optional: Latitude for geographic analysis."
+        },
+        {
+          "name": "longitude",
+          "data_type": "NUMERIC",
+          "description": "Optional: Longitude for geographic analysis."
+        }
+      ]
+    }
+  ],
+  "kpis": [
+    {
+      "kpi_name": "Total Sales Amount",
+      "description": "The total revenue from product sales.",
+      "calculation_method": "SUM(Fact_Sales.item_sales_amount)",
+      "source_tables": ["Fact_Sales"],
+      "dimensions_for_analysis": ["Dim_Date", "Dim_Product", "Dim_Customer", "Dim_Shipping_Address"]
+    },
+    {
+      "kpi_name": "Number of Orders",
+      "description": "The total count of unique orders.",
+      "calculation_method": "COUNT(DISTINCT Fact_Sales.order_id)",
+      "source_tables": ["Fact_Sales"],
+      "dimensions_for_analysis": ["Dim_Date", "Dim_Customer", "Dim_Shipping_Address"]
+    },
+    {
+      "kpi_name": "Average Order Value",
+      "description": "The average revenue generated per order.",
+      "calculation_method": "SUM(Fact_Sales.item_sales_amount) / COUNT(DISTINCT Fact_Sales.order_id)",
+      "source_tables": ["Fact_Sales"],
+      "dimensions_for_analysis": ["Dim_Date", "Dim_Customer", "Dim_Shipping_Address"]
+    },
+    {
+      "kpi_name": "Customer Acquisition Cost (CAC)",
+      "description": "The cost incurred to acquire a specific customer.",
+      "calculation_method": "Fact_Customer_Acquisition_LTV.customer_acquisition_cost",
+      "source_tables": ["Fact_Customer_Acquisition_LTV", "Dim_Customer"],
+      "dimensions_for_analysis": ["Dim_Date", "Dim_Customer"]
+    },
+    {
+      "kpi_name": "Customer Lifetime Value (LTV)",
+      "description": "The calculated Customer Lifetime Value up to a given calculation date, representing the total revenue a business can expect from a customer over their lifetime.",
+      "calculation_method": "Fact_Customer_Acquisition_LTV.lifetime_value_to_date",
+      "source_tables": ["Fact_Customer_Acquisition_LTV", "Dim_Customer"],
+      "dimensions_for_analysis": ["Dim_Date", "Dim_Customer"]
+    }
+  ],
+  "relationships": [
+    {
+      "from_table": "Fact_Sales",
+      "from_column": "customer_key",
+      "to_table": "Dim_Customer",
+      "to_column": "customer_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Sales",
+      "from_column": "product_key",
+      "to_table": "Dim_Product",
+      "to_column": "product_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Sales",
+      "from_column": "order_date_key",
+      "to_table": "Dim_Date",
+      "to_column": "time_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Sales",
+      "from_column": "shipping_address_key",
+      "to_table": "Dim_Shipping_Address",
+      "to_column": "shipping_address_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Customer_Acquisition_LTV",
+      "from_column": "customer_key",
+      "to_table": "Dim_Customer",
+      "to_column": "customer_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Customer_Acquisition_LTV",
+      "from_column": "acquisition_date_key",
+      "to_table": "Dim_Date",
+      "to_column": "time_key",
+      "relationship_type": "many-to-one"
+    },
+    {
+      "from_table": "Fact_Customer_Acquisition_LTV",
+      "from_column": "ltv_calculation_date_key",
+      "to_table": "Dim_Date",
+      "to_column": "time_key",
+      "relationship_type": "many-to-one"
+    }
+  ]
+}

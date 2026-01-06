@@ -1,0 +1,68 @@
+sequenceDiagram
+    actor User/root_agent
+    participant orch_agent as modelling_orchestrator_agent
+    participant init_tool as modelling_orch_tool
+    participant all_model_agent
+    participant entity_agent as entity_modeller_agent
+    participant conceptual_agent as conceptual_modeller_agent
+    participant logical_agent as logical_modeller_agent
+    participant physical_agent as physical_modeller_agent
+    participant search_tools as Search Tools
+
+    User/root_agent->>orch_agent: 1. "Create a new data model for..."
+    activate orch_agent
+
+    orch_agent->>init_tool: 2. Invoke tool to initialize state
+    activate init_tool
+    init_tool-->>orch_agent: 3. State variables initialized
+    deactivate init_tool
+
+    orch_agent->>all_model_agent: 4. Invoke agent to start model generation
+    activate all_model_agent
+
+    all_model_agent->>entity_agent: 5. Invoke agent for Entity Model
+    activate entity_agent
+    entity_agent->>search_tools: 6. call_blueprint_search(...)
+    search_tools-->>entity_agent: 7. Returns blueprint info
+    entity_agent->>search_tools: 8. call_ddl_search(...)
+    search_tools-->>entity_agent: 9. Returns DDL info
+    note over entity_agent, search_tools: Other search tools (Google, User Responses, etc.) are also called as needed.
+    entity_agent-->>all_model_agent: 10. Returns generated Entity Model
+    deactivate entity_agent
+
+    all_model_agent-->>User/root_agent: 11. "Entity model created. Proceed to Conceptual Model?"
+    User/root_agent->>all_model_agent: 12. "Yes, proceed."
+
+    all_model_agent->>conceptual_agent: 13. Invoke agent for Conceptual Model
+    activate conceptual_agent
+    conceptual_agent->>search_tools: 14. Uses various search tools...
+    search_tools-->>conceptual_agent: 15. Returns context
+    conceptual_agent-->>all_model_agent: 16. Returns generated Conceptual Model
+    deactivate conceptual_agent
+
+    all_model_agent-->>User/root_agent: 17. "Conceptual model created. Proceed to Logical Model?"
+    User/root_agent->>all_model_agent: 18. "Yes, proceed."
+
+    all_model_agent->>logical_agent: 19. Invoke agent for Logical Model
+    activate logical_agent
+    logical_agent->>search_tools: 20. Uses various search tools...
+    search_tools-->>logical_agent: 21. Returns context
+    logical_agent-->>all_model_agent: 22. Returns generated Logical Model
+    deactivate logical_agent
+
+    all_model_agent-->>User/root_agent: 23. "Logical model created. Proceed to Physical Model?"
+    User/root_agent->>all_model_agent: 24. "Yes, proceed."
+
+    all_model_agent->>physical_agent: 25. Invoke agent for Physical Model
+    activate physical_agent
+    physical_agent->>search_tools: 26. call_bq_best_prac_search(...)
+    search_tools-->>physical_agent: 27. Returns BQ best practices
+    note over physical_agent, search_tools: Other search tools are also called as needed.
+    physical_agent-->>all_model_agent: 28. Returns generated Physical Model
+    deactivate physical_agent
+
+    all_model_agent-->>orch_agent: 29. Returns final consolidated result
+    deactivate all_model_agent
+
+    orch_agent-->>User/root_agent: 30. Sends final response with all generated models
+    deactivate orch_agent

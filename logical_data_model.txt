@@ -1,0 +1,44 @@
+Model Selection and Structure
+|Component|Rationale|
+|:---|:---|
+|Model Type|Dimensional Model (Star Schema). The objective is to move from a highly normalized legacy EDW to an analytically performant model to achieve sub-20 second dashboard load times for FinOps analytics. A Star Schema, with its inherent denormalization, supports this goal by simplifying queries and optimizing aggregation.|
+|Granularity|Atomic Line-Item Level for cost data (from Billing_Transaction_Ledger) and at least Hourly Time-Series for utilization data. This supports detailed cost reconciliation, anomaly detection, and granular KPI analysis (e.g., daily and monthly views).|
+|Design Principle|Conformed Dimensions: Essential for unifying cross-cloud cost and usage data (AWS, Azure, GCP) to enable consistent analysis and Cross-Cloud Cost Allocation. Hierarchical organizational tags (`accounting_cat`, `business_unit`, `workload`, `Environment`) will be integrated into the relevant dimension.|
+
+Blueprint Mapping: Fact Tables (Data Tables)
+The model utilizes a core transaction fact and includes aggregate and bridge facts to support various analytical requirements and performance objectives.
+|Target Fact Table|Source Table Mapping (Source DDL)|Key Metrics Supported|
+|:---|:---|:---|
+|FACT_DAILY_USAGE (Transaction)|Billing_Transaction_Ledger_Table (Core Source), Transaction_Credit_Item_Table|Total Monthly Cloud Spend, Unit Cost Metrics (cost/usage), Total Cost, Cost by Type, Cost by Resource.|
+|FACT_MONTHLY_AGGREGATE (Aggregate)|Aggregated from FACT_DAILY_USAGE|Actual vs. Budget Variance (Supports fast historical trending and monthly summaries for KPIs like Q35-Q47).|
+|FACT_TRANSACTION_CREDIT (Detail)|Transaction_Credit_Item_Table (Detail Fact)|CUD Credits, Commitment Credits, Credit Amount by Type.|
+
+Blueprint Mapping: Dimension Tables (Master & Data Tables)
+All dimensions are designed as wide, denormalized tables where appropriate to simplify user queries and optimize Looker/Looker Studio performance, while adhering to SCD requirements.
+|Target Dimension Table|Source Table Mapping (Source DDL)|SCD Type Requirement|
+|:---|:---|:---|
+|DIM_ORGANIZATION|Project_Profile_Table (Master - implied from KPI queries), Project_Ancestor_Node_Table (Data Table)|SCD Type 2. Mandatory for tracking changes to `business_unit`, `workload`, and `Environment` for historical cost accountability and RLS.|
+|DIM_PRODUCT|Service_SKU_Table (Master), Product_Taxonomy_Table (Data Table)|SCD Type 2. Captures changes to product definitions, descriptions, and taxonomy mappings as specified for `service_sku_table`.|
+|DIM_RESOURCE|Resource_Inventory_Table (Master - implied from DDL), Resource_Tag_Table (Data Table), Resource_Label_Table (Data Table)|SCD Type 2 (Anticipated for resource attributes that may change over time, e.g., cost center tags, environment changes). This supports granular cost allocation and tagging from resource_tag_table and resource_label_table.|
+|DIM_LOCATION|Geo_Taxonomy_Table (Data Table)|SCD Type 1. Geography attributes (Region, Zone) are generally static lookups.|
+|DIM_PRICING|Consumption_Model_Rule_Table (Data Table)|SCD Type 2. Required to preserve the context of pricing rules and contract terms for historical cost analysis.|
+|DIM_DATE|Derived (Standard Date Dimension)|No SCD. Standard date attributes are fixed.|
+|DIM_TIME|Derived (Standard Time Dimension)|No SCD. Standard time attributes are fixed.|
+
+Supporting Tables
+|Target Reference Table|Source Table Mapping (Source DDL)|SCD Type Requirement|
+|:---|:---|:---|
+|BRDG_RESOURCE_TAG|Resource_Tag_Table|No SCD. Captures volatile, granular tag key-value pairs tied to resources, serving as a bridge for a multi-valued attribute.|
+|BRDG_RESOURCE_LABEL|Resource_Label_Table|No SCD. Captures resource label key-value pairs, serving as a bridge for a multi-valued attribute.|
+|BRDG_PROJECT_ANCESTOR|Project_Ancestor_Node_Table|SCD Type 2. Serves as a hierarchy bridge for `DIM_ORGANIZATION` to track changes in project ancestry for historical context.|
+|DIM_PRODUCT_TAXONOMY|Product_Taxonomy_Table|No SCD. Static lookup for product classification levels and values.|
+|DIM_GEO_TAXONOMY|Geo_Taxonomy_Table|No SCD. Static lookup for geographical classification types and regions.|
+
+Requirement Integration (Compliance & Performance)
+|Non-Functional Requirement|Implementation Strategy in the DDM|
+|:---|:---|
+|Query Performance SLO (sub-20s)|Achieved via Star Schema (denormalization) to simplify queries and reduce join complexity. The implementation of `FACT_MONTHLY_AGGREGATE` tables directly supports faster execution of common monthly and historical trend KPIs (Q35-Q47) by providing pre-summarized data.|
+|RLS (Row-Level Security)|Implemented on the `DIM_ORGANIZATION` table. BigQuery RLS policies will restrict access to Fact tables based on the user's mapped `business_unit` and/or `workload` from the `DIM_ORGANIZATION` table, enforcing data visibility requirements.|
+|SCD Type 2 Tracking|Applied to `DIM_ORGANIZATION`, `DIM_PRODUCT`, and `DIM_PRICING` to satisfy the mandatory requirement for historical cost accountability when `business_unit`, `workload`, `Environment`, product definitions, or pricing rules change. Naming conventions like `SCD_EFFECTIVE_FROM_DATE`, `SCD_EFFECTIVE_TO_DATE`, and `SCD_CURRENT_FLAG` will be used.|
+|Granularity (Atomic Line-Item/Hourly)|The model retains the atomic billing line-item in `FACT_DAILY_USAGE` for detailed reconciliation and anomaly detection. `DIM_DATE` and `DIM_TIME` tables will link to `FACT_DAILY_USAGE` to support required daily and potential hourly time-series analysis for utilization (e.g., container cost allocation).|
+|Data Reconciliation SLO (1-5% error)|The atomic `FACT_DAILY_USAGE` table, directly sourced from the `Billing_Transaction_Ledger_Table` and `Transaction_Credit_Item_Table`, will be the foundation for reconciliation. Clear data lineage and validation processes will ensure alignment with source invoices within the defined error tolerance.|

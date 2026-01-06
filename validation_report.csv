@@ -1,0 +1,271 @@
+## EDW Migration Validation Report
+
+### 1. Executive Summary
+
+This report details the validation of the provided Final Target PDM DDL (Input B) against the Source DDLs (Input A) and the LDM/Mapping Specification (Input C). Significant discrepancies were found between the intended Logical Data Model (LDM) as defined in Input C and the actual Physical Data Model (PDM) generated in Input B.
+
+**1a. Validation Metrics**
+
+*   **Migration Scope:** 13 Source tables → 11 Target PDM tables
+*   **Tables Successfully Mapped:** 3 (DIM_DATE, DIM_TIME, DIM_RESOURCE - exact name matches with LDM specifications)
+*   **Net-New Tables Created:** 8 (DIM_INVOICE, DIM_ORGANIZATION, DIM_PRODUCT, DIM_PRICING, DIM_LOCATION, BRDG_RESOURCE_TAG, FACT_DAILY_USAGE, FACT_MONTHLY_AGGREGATE - these PDM tables do not directly match LDM specified table names, indicating significant structural deviations or entirely new entities in the PDM that were not explicitly in the LDM specification.)
+*   **Tables Dropped:** 8 (FACT_BILLING_TRANSACTION, DIM_PROJECT, DIM_ORGANIZATION_HIERARCHY, DIM_SERVICE_SKU, DIM_PRICING_RULE, BRDG_RESOURCE_LABELS, BRDG_RESOURCE_TAGS, REF_PRICE_TIER - these LDM tables do not appear by name in the PDM, although their content may have been consolidated or reorganized into other PDM tables.)
+*   **Columns with Issues:** 82 (Includes type mismatches, constraint violations, missing columns, and new columns not specified in LDM for their respective target entities).
+*   **Key Integrity Violations:** 9 (Issues with Primary Key consolidation/renaming and Foreign Key relationships being lost or redefined inconsistently with the LDM specification).
+*   **Migration Health Score:** 18.5% (Based on the percentage of PASS verdicts at the column level relative to total LDM-defined target columns plus new PDM columns).
+
+**1b. Detailed Column & Constraint Reconciliation**
+
+| Source Table | Source Column | Source Type | Source PK/FK | Target Table | Target Column | Target Type | Target PK/FK | Status | Type Check | Key Check | Constraint Check | Verdict | Notes |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| N/A | N/A | N/A | PK Only | FACT_DAILY_USAGE | SK_DAILY_USAGE | STRING | PK | Mapped (Rename) | PASS | PASS (PK exists) | PASS | PASS | LDM `SK_BILLING_TRANSACTION` renamed to PDM `SK_DAILY_USAGE`. |
+| Billing_Transaction_Ledger_Table | usage_start_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | SK_DATE | DATE | FK | Mapped (New FK) | FAIL (TIMESTAMP → DATE) | PASS (FK exists) | PASS (NOT NULL) | FAIL | LDM specified SK_DATE derived from usage_start_time. Type changed. |
+| Billing_Transaction_Ledger_Table | usage_start_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | SK_TIME | TIME | FK | Mapped (New FK) | FAIL (TIMESTAMP → TIME) | PASS (FK exists) | PASS (NOT NULL) | FAIL | LDM specified SK_TIME derived from usage_start_time. Type changed. |
+| Project_Profile_Table | project_id | VARCHAR2(255) | PK | FACT_DAILY_USAGE | SK_ORGANIZATION | STRING | FK | Mapped (New FK/Rename) | PASS | PASS (FK exists) | PASS (NOT NULL) | PASS | LDM `SK_PROJECT` mapped to PDM `SK_ORGANIZATION`. |
+| Service_SKU_Table | service_sku_id | VARCHAR2(255) | PK | FACT_DAILY_USAGE | SK_PRODUCT | STRING | FK | Mapped (New FK/Rename) | PASS | PASS (FK exists) | PASS (NOT NULL) | PASS | LDM `SK_SERVICE_SKU` mapped to PDM `SK_PRODUCT`. |
+| Account_SKU_Price_Rule | billing_account_price_id | VARCHAR2(255) | PK | FACT_DAILY_USAGE | SK_PRICING | STRING | FK | Mapped (New FK/Rename) | PASS | PASS (FK exists) | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | LDM `SK_PRICING_RULE` mapped to PDM `SK_PRICING`. |
+| Billing_Transaction_Ledger_Table | cost | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | cost | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | usage_amount | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | usage_amount | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | usage_start_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | usage_start_time | TIMESTAMP | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | invoice_month | VARCHAR2(6) | N/A | FACT_DAILY_USAGE | invoice_month | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Transaction_Credit_Item_Table | credit_amount | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | credit_amount | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Transaction_Credit_Item_Table | credit_type | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | credit_type | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | billing_trans_ledger_sk | VARCHAR2(255) | PK | FACT_DAILY_USAGE | billing_trans_ledger_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Billing_Transaction_Ledger_Table | billing_account_price_id | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | billing_account_price_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | project_id | VARCHAR2(255) | FK | FACT_DAILY_USAGE | project_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Billing_Transaction_Ledger_Table | service_sku_id | VARCHAR2(255) | FK | FACT_DAILY_USAGE | service_sku_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Billing_Transaction_Ledger_Table | usage_end_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | usage_end_time | TIMESTAMP | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | export_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | export_time | TIMESTAMP | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | cost_type | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | cost_type | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | transaction_type | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | transaction_type | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | seller_name | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | seller_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | currency | VARCHAR2(10) | N/A | FACT_DAILY_USAGE | currency | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | currency_conversion_rate | NUMBER(20,9) | N/A | FACT_DAILY_USAGE | currency_conversion_rate | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Billing_Transaction_Ledger_Table | cost_at_list | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | cost_at_list | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | cost_effective_price | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | cost_effective_price | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | usage_unit | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | usage_unit | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | usage_amt_in_pricing_units | NUMBER(20,6) | N/A | FACT_DAILY_USAGE | usage_amt_in_pricing_units | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | pricing_unit | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | pricing_unit | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | adjustment_id | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | adjustment_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | adjustment_description | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | adjustment_description | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | adjustment_mode | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | adjustment_mode | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Billing_Transaction_Ledger_Table | adjustment_type | VARCHAR2(50) | N/A | FACT_DAILY_USAGE | adjustment_type | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Transaction_Credit_Item_Table | trans_credit_item_sk | VARCHAR2(255) | PK | FACT_DAILY_USAGE | trans_credit_item_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Transaction_Credit_Item_Table | credit_name | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | credit_name | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Transaction_Credit_Item_Table | credit_full_name | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | credit_full_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Transaction_Credit_Item_Table | credit_id | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | credit_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_RESOURCE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_LOCATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_INVOICE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | TOTAL_COST | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | TOTAL_CREDIT_AMOUNT | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column in PDM not in LDM. |
+| N/A | N/A | N/A | PK Only | DIM_DATE | SK_DATE | DATE | PK | Mapped | PASS | PASS | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_DATE | date_actual | DATE | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | day_of_week | INT64 | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_DATE | day_name | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_DATE | month_actual | INT64 | N/A | Mapped (Rename) | PASS | N/A | PASS (NOT NULL) | PASS | LDM `MONTH_OF_YEAR` renamed to PDM `month_actual`. |
+| N/A | N/A | N/A | N/A | DIM_DATE | month_name | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_DATE | quarter_actual | INT64 | N/A | Mapped (Rename) | PASS | N/A | PASS (NOT NULL) | PASS | LDM `QUARTER` renamed to PDM `quarter_actual`. |
+| N/A | N/A | N/A | N/A | DIM_DATE | quarter_name | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | year_actual | INT64 | N/A | Mapped (Rename) | PASS | N/A | PASS (NOT NULL) | PASS | LDM `YEAR` renamed to PDM `year_actual`. |
+| N/A | N/A | N/A | N/A | DIM_DATE | week_of_year | INT64 | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_DATE | day_of_year | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | is_weekend | BOOL | N/A | Mapped (Type Change) | FAIL (STRING → BOOL) | N/A | PASS (NOT NULL) | FAIL | LDM `WEEKDAY_FLAG` (STRING) to PDM `is_weekend` (BOOL). |
+| N/A | N/A | N/A | N/A | N/A | DAY_OF_MONTH | INT64 | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM `DAY_OF_MONTH` is missing in PDM. |
+| N/A | N/A | N/A | PK Only | DIM_TIME | SK_TIME | STRING | PK | Mapped (Type Change) | FAIL (TIME → STRING) | PASS | PASS (NOT NULL) | FAIL | LDM `SK_TIME` (TIME) mapped to PDM `SK_TIME` (STRING). |
+| N/A | N/A | N/A | N/A | DIM_TIME | time_actual | TIME | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_TIME | hour_24 | INT64 | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | N/A | DIM_TIME | minute_actual | INT64 | N/A | Mapped (Rename) | PASS | N/A | PASS (NOT NULL) | PASS | LDM `MINUTE` renamed to PDM `minute_actual`. |
+| N/A | N/A | N/A | N/A | DIM_TIME | second_actual | INT64 | N/A | Mapped (Rename) | PASS | N/A | PASS (NOT NULL) | PASS | LDM `SECOND` renamed to PDM `second_actual`. |
+| N/A | N/A | N/A | N/A | DIM_TIME | am_pm | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| N/A | N/A | N/A | PK Only | DIM_ORGANIZATION | SK_ORGANIZATION | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PK. |
+| Project_Profile_Table | N/A | N/A | N/A | DIM_ORGANIZATION | SCD_EFFECTIVE_FROM_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | N/A | N/A | N/A | DIM_ORGANIZATION | SCD_EFFECTIVE_TO_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | N/A | N/A | N/A | DIM_ORGANIZATION | SCD_CURRENT_FLAG | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | project_id | VARCHAR2(255) | PK | DIM_ORGANIZATION | project_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | project_number | NUMBER(20) | N/A | DIM_ORGANIZATION | project_number | INT64 | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | project_name | VARCHAR2(255) | N/A | DIM_ORGANIZATION | project_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | billing_account_id | VARCHAR2(255) | N/A | DIM_ORGANIZATION | billing_account_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | From LDM `DIM_PROJECT`. |
+| Project_Profile_Table | ancestry_numbers | VARCHAR2(512) | N/A | DIM_ORGANIZATION | ancestry_numbers | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PROJECT`. |
+| Project_Ancestor_Node_Table | project_ancestor_sk | VARCHAR2(255) | PK | DIM_ORGANIZATION | project_ancestor_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | From LDM `DIM_ORGANIZATION_HIERARCHY`. |
+| Project_Ancestor_Node_Table | ancestor_resource_name | VARCHAR2(255) | N/A | DIM_ORGANIZATION | ancestor_resource_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_ORGANIZATION_HIERARCHY`. |
+| Project_Ancestor_Node_Table | ancestor_display_name | VARCHAR2(255) | N/A | DIM_ORGANIZATION | ancestor_display_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_ORGANIZATION_HIERARCHY`. |
+| N/A | N/A | N/A | FK Only | N/A | SK_PROJECT (FK) | STRING | FK | Dropped | N/A | FAIL (FK lost in consolidation) | N/A | FAIL | LDM `DIM_ORGANIZATION_HIERARCHY` FK `SK_PROJECT` is lost. |
+| N/A | N/A | N/A | PK Only | DIM_PRODUCT | SK_PRODUCT | STRING | PK | Mapped (Rename) | PASS | PASS | PASS (NOT NULL) | PASS | LDM `SK_SERVICE_SKU` renamed to PDM `SK_PRODUCT`. |
+| Service_SKU_Table | N/A | N/A | N/A | DIM_PRODUCT | SCD_EFFECTIVE_FROM_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Service_SKU_Table | N/A | N/A | N/A | DIM_PRODUCT | SCD_EFFECTIVE_TO_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | N/A | N/A | N/A | DIM_PRODUCT | SCD_CURRENT_FLAG | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Service_SKU_Table | service_sku_id | VARCHAR2(255) | PK | DIM_PRODUCT | service_sku_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Service_SKU_Table | service_id | VARCHAR2(255) | N/A | DIM_PRODUCT | service_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | service_description | VARCHAR2(1024) | N/A | DIM_PRODUCT | service_description | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Service_SKU_Table | sku_id | VARCHAR2(255) | N/A | DIM_PRODUCT | sku_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Service_SKU_Table | sku_description | VARCHAR2(1024) | N/A | DIM_PRODUCT | sku_description | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Service_SKU_Table | destination_migration_mapping | VARCHAR2(255) | N/A | DIM_PRODUCT | destination_migration_mapping | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | pricing_unit | VARCHAR2(50) | N/A | DIM_PRODUCT | pricing_unit | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | pricing_unit_description | VARCHAR2(255) | N/A | DIM_PRODUCT | pricing_unit_description | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | business_entity_name | VARCHAR2(255) | N/A | DIM_PRODUCT | business_entity_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Service_SKU_Table | pricing_as_of_time | TIMESTAMP | N/A | DIM_PRODUCT | pricing_as_of_time | TIMESTAMP | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Product_Taxonomy_Table | product_taxonomy_level | VARCHAR2(50) | N/A | DIM_PRODUCT | product_taxonomy_level | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Product_Taxonomy_Table | product_taxonomy_value | VARCHAR2(255) | N/A | DIM_PRODUCT | product_taxonomy_value | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Geo_Taxonomy_Table | geo_type | VARCHAR2(50) | N/A | N/A | geo_type | STRING | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM expected denormalization into `DIM_SERVICE_SKU`. Missing from PDM `DIM_PRODUCT`. |
+| Geo_Taxonomy_Table | regions | VARCHAR2(1024) | N/A | N/A | regions | STRING | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM expected denormalization into `DIM_SERVICE_SKU`. Missing from PDM `DIM_PRODUCT`. |
+| Product_Taxonomy_Table | product_taxonomy_id | VARCHAR2(255) | PK | DIM_PRODUCT | product_taxonomy_id | STRING | N/A | New | PASS | N/A | FAIL (PDM NOT NULL, LDM did not carry) | FAIL | LDM mapping explicitly said this column should *not* be carried. |
+| N/A | N/A | N/A | PK Only | DIM_PRICING | SK_PRICING | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PKs. |
+| Account_SKU_Price_Rule | N/A | N/A | N/A | DIM_PRICING | SCD_EFFECTIVE_FROM_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | N/A | N/A | N/A | DIM_PRICING | SCD_EFFECTIVE_TO_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | N/A | N/A | N/A | DIM_PRICING | SCD_CURRENT_FLAG | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | billing_account_price_id | VARCHAR2(255) | PK | DIM_PRICING | billing_account_price_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | billing_account_id | VARCHAR2(255) | N/A | DIM_PRICING | billing_account_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | sku_id | VARCHAR2(255) | N/A | DIM_PRICING | sku_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | pricing_as_of_time | TIMESTAMP | N/A | DIM_PRICING | pricing_as_of_time | TIMESTAMP | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | currency_conversion_rate | NUMBER(20,9) | N/A | DIM_PRICING | currency_conversion_rate | BIGNUMERIC | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | account_currency_code | VARCHAR2(10) | N/A | DIM_PRICING | account_currency_code | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | price_reason | VARCHAR2(50) | N/A | DIM_PRICING | price_reason | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | discount_percent | NUMBER(5,4) | N/A | DIM_PRICING | discount_percent | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | discount_percent_fixed_date | DATE | N/A | DIM_PRICING | discount_percent_fixed_date | DATE | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | discount_migrated_from | VARCHAR2(255) | N/A | DIM_PRICING | discount_migrated_from | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | aggregation_level | VARCHAR2(50) | N/A | DIM_PRICING | aggregation_level | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_SKU_Price_Rule | aggregation_interval | VARCHAR2(50) | N/A | DIM_PRICING | aggregation_interval | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Consumption_Model_Rule_Table | consumption_model_id | VARCHAR2(255) | N/A | DIM_PRICING | consumption_model_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Consumption_Model_Rule_Table | model_display_name | VARCHAR2(255) | N/A | DIM_PRICING | model_display_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Consumption_Model_Rule_Table | model_description | VARCHAR2(1024) | N/A | DIM_PRICING | model_description | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `DIM_PRICING_RULE`. |
+| Account_Price_Tier_Table | account_price_tier_id | VARCHAR2(255) | PK | DIM_PRICING | account_price_tier_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `REF_PRICE_TIER`. |
+| Account_Price_Tier_Table | start_usage_amount | NUMBER(20,6) | N/A | DIM_PRICING | start_usage_amount | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `REF_PRICE_TIER`. |
+| Account_Price_Tier_Table | pricing_unit_quantity | NUMBER(20,6) | N/A | DIM_PRICING | pricing_unit_quantity | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `REF_PRICE_TIER`. |
+| Account_Price_Tier_Table | usd_amount | NUMBER(20,6) | N/A | DIM_PRICING | usd_amount | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `REF_PRICE_TIER`. |
+| Account_Price_Tier_Table | account_currency_amount | NUMBER(20,6) | N/A | DIM_PRICING | account_currency_amount | BIGNUMERIC | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | From LDM `REF_PRICE_TIER`. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | consumption_model_id_sk | STRING | N/A | New | PASS | N/A | FAIL (PDM NOT NULL, LDM does not specify as target col) | FAIL | LDM specified `consumption_model_id` as target, not `consumption_model_id_sk`. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | rule_price_reason | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | rule_discount_percent | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column. |
+| N/A | N/A | N/A | PK Only | DIM_RESOURCE | SK_RESOURCE | STRING | PK | Mapped | PASS | PASS | PASS (NOT NULL) | PASS | |
+| Resource_Inventory_Table | N/A | N/A | N/A | DIM_RESOURCE | SCD_EFFECTIVE_FROM_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Resource_Inventory_Table | N/A | N/A | N/A | DIM_RESOURCE | SCD_EFFECTIVE_TO_DATE | DATE | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | N/A | N/A | N/A | DIM_RESOURCE | SCD_CURRENT_FLAG | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Resource_Inventory_Table | resource_id | VARCHAR2(255) | PK | DIM_RESOURCE | resource_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | |
+| Resource_Inventory_Table | resource_name | VARCHAR2(255) | N/A | DIM_RESOURCE | resource_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | resource_global_name | VARCHAR2(512) | N/A | DIM_RESOURCE | resource_global_name | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | project_id | VARCHAR2(255) | N/A | DIM_RESOURCE | project_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Inventory_Table | location | VARCHAR2(100) | N/A | DIM_RESOURCE | location | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | region | VARCHAR2(100) | N/A | DIM_RESOURCE | region | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | zone | VARCHAR2(100) | N/A | DIM_RESOURCE | zone | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | country | VARCHAR2(100) | N/A | DIM_RESOURCE | country | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Inventory_Table | service_id | VARCHAR2(255) | N/A | DIM_RESOURCE | service_id | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| N/A | N/A | N/A | PK Only | BRDG_RESOURCE_TAG | SK_RESOURCE_TAG_BRIDGE | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PKs. |
+| N/A | N/A | N/A | N/A | BRDG_RESOURCE_TAG | SK_RESOURCE | STRING | FK | Mapped | PASS | PASS | PASS (NOT NULL) | PASS | FK from both LDM bridge tables. |
+| Resource_Label_Table | resource_id | VARCHAR2(255) | FK | BRDG_RESOURCE_TAG | resource_id | STRING | N/A | Mapped | PASS | N/A | PASS (NOT NULL) | PASS | From LDM `BRDG_RESOURCE_LABELS` and `BRDG_RESOURCE_TAGS`. |
+| Resource_Label_Table | label_key | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | label_key | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Label_Table | label_value | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | label_value | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | tag_key | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | tag_key | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | tag_value | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | tag_value | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | tag_namespace | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | tag_namespace | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Tag_Table | tag_inherited | CHAR(1) | N/A | BRDG_RESOURCE_TAG | tag_inherited | STRING | N/A | Mapped | PASS | N/A | PASS (NULLABLE) | PASS | |
+| Resource_Tag_Table | resource_tag_sk | VARCHAR2(255) | PK | BRDG_RESOURCE_TAG | resource_tag_sk | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | LDM intended this for SK generation, not retention as column. |
+| Resource_Label_Table | resource_label_sk | VARCHAR2(255) | PK | BRDG_RESOURCE_TAG | resource_label_sk | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | LDM intended this for SK generation, not retention as column. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | SK_INVOICE | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_month | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_year | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_quarter | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_month_name | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_LOCATION | SK_LOCATION | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| Geo_Taxonomy_Table | geo_taxonomy_id | VARCHAR2(255) | PK | DIM_LOCATION | geo_taxonomy_id | STRING | N/A | Mapped (New Table) | PASS | N/A | PASS (NOT NULL) | PASS | LDM intended denormalization into DIM_SERVICE_SKU. PDM created new table. |
+| Geo_Taxonomy_Table | service_sku_id | VARCHAR2(255) | FK | DIM_LOCATION | service_sku_id | STRING | N/A | Mapped (New Table) | PASS | N/A | PASS (NOT NULL) | PASS | LDM intended denormalization into DIM_SERVICE_SKU. PDM created new table. |
+| Geo_Taxonomy_Table | geo_type | VARCHAR2(50) | N/A | DIM_LOCATION | geo_type | STRING | N/A | Mapped (New Table) | PASS | N/A | PASS (NOT NULL) | PASS | LDM intended denormalization into DIM_SERVICE_SKU. PDM created new table. |
+| Geo_Taxonomy_Table | regions | VARCHAR2(1024) | N/A | DIM_LOCATION | regions | STRING | N/A | Mapped (New Table) | PASS | N/A | PASS (NULLABLE) | PASS | LDM intended denormalization into DIM_SERVICE_SKU. PDM created new table. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_MONTHLY_AGGREGATE | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_ORGANIZATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_PRODUCT | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_PRICING | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_LOCATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_DATE | DATE | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_INVOICE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | MONTHLY_TOTAL_COST | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | MONTHLY_TOTAL_CREDIT | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | invoice_month | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | cost_type | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | project_id | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | service_sku_id | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | billing_account_price_id | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW table in PDM. |
+
+**1c. Detailed Exception Report**
+
+This report lists only the rows where the `Verdict` is `FAIL`.
+
+| Source Table | Source Column | Source Type | Source PK/FK | Target Table | Target Column | Target Type | Target PK/FK | Status | Type Check | Key Check | Constraint Check | Verdict | Notes |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| Billing_Transaction_Ledger_Table | usage_start_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | SK_DATE | DATE | FK | Mapped (New FK) | FAIL (TIMESTAMP → DATE) | PASS (FK exists) | PASS (NOT NULL) | FAIL | LDM specified SK_DATE derived from usage_start_time. Type changed. |
+| Billing_Transaction_Ledger_Table | usage_start_time | TIMESTAMP | N/A | FACT_DAILY_USAGE | SK_TIME | TIME | FK | Mapped (New FK) | FAIL (TIMESTAMP → TIME) | PASS (FK exists) | PASS (NOT NULL) | FAIL | LDM specified SK_TIME derived from usage_start_time. Type changed. |
+| Account_SKU_Price_Rule | billing_account_price_id | VARCHAR2(255) | PK | FACT_DAILY_USAGE | SK_PRICING | STRING | FK | Mapped (New FK/Rename) | PASS | PASS (FK exists) | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | LDM `SK_PRICING_RULE` mapped to PDM `SK_PRICING`. |
+| Billing_Transaction_Ledger_Table | billing_trans_ledger_sk | VARCHAR2(255) | PK | FACT_DAILY_USAGE | billing_trans_ledger_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Billing_Transaction_Ledger_Table | project_id | VARCHAR2(255) | FK | FACT_DAILY_USAGE | project_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Billing_Transaction_Ledger_Table | service_sku_id | VARCHAR2(255) | FK | FACT_DAILY_USAGE | service_sku_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Transaction_Credit_Item_Table | trans_credit_item_sk | VARCHAR2(255) | PK | FACT_DAILY_USAGE | trans_credit_item_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| Transaction_Credit_Item_Table | credit_name | VARCHAR2(255) | N/A | FACT_DAILY_USAGE | credit_name | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_RESOURCE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_LOCATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | SK_INVOICE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW FK in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | TOTAL_COST | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | FACT_DAILY_USAGE | TOTAL_CREDIT_AMOUNT | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column in PDM not in LDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | date_actual | DATE | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | quarter_name | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | day_of_year | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | N/A | DIM_DATE | is_weekend | BOOL | N/A | Mapped (Type Change) | FAIL (STRING → BOOL) | N/A | PASS (NOT NULL) | FAIL | LDM `WEEKDAY_FLAG` (STRING) to PDM `is_weekend` (BOOL). |
+| N/A | N/A | N/A | N/A | N/A | DAY_OF_MONTH | INT64 | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM `DAY_OF_MONTH` is missing in PDM. |
+| N/A | N/A | N/A | PK Only | DIM_TIME | SK_TIME | STRING | PK | Mapped (Type Change) | FAIL (TIME → STRING) | PASS | PASS (NOT NULL) | FAIL | LDM `SK_TIME` (TIME) mapped to PDM `SK_TIME` (STRING). |
+| N/A | N/A | N/A | N/A | DIM_TIME | time_actual | TIME | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW column in PDM. |
+| N/A | N/A | N/A | PK Only | DIM_ORGANIZATION | SK_ORGANIZATION | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PK. |
+| Project_Profile_Table | billing_account_id | VARCHAR2(255) | N/A | DIM_ORGANIZATION | billing_account_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | From LDM `DIM_PROJECT`. |
+| Project_Ancestor_Node_Table | project_ancestor_sk | VARCHAR2(255) | PK | DIM_ORGANIZATION | project_ancestor_sk | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NULLABLE, LDM NOT NULL) | FAIL | From LDM `DIM_ORGANIZATION_HIERARCHY`. |
+| N/A | N/A | N/A | FK Only | N/A | SK_PROJECT (FK) | STRING | FK | Dropped | N/A | FAIL (FK lost in consolidation) | N/A | FAIL | LDM `DIM_ORGANIZATION_HIERARCHY` FK `SK_PROJECT` is lost. |
+| Service_SKU_Table | service_description | VARCHAR2(1024) | N/A | DIM_PRODUCT | service_description | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Service_SKU_Table | sku_id | VARCHAR2(255) | N/A | DIM_PRODUCT | sku_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Service_SKU_Table | sku_description | VARCHAR2(1024) | N/A | DIM_PRODUCT | sku_description | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Geo_Taxonomy_Table | geo_type | VARCHAR2(50) | N/A | N/A | geo_type | STRING | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM expected denormalization into `DIM_SERVICE_SKU`. Missing from PDM `DIM_PRODUCT`. |
+| Geo_Taxonomy_Table | regions | VARCHAR2(1024) | N/A | N/A | regions | STRING | N/A | Dropped | N/A | N/A | N/A | FAIL | LDM expected denormalization into `DIM_SERVICE_SKU`. Missing from PDM `DIM_PRODUCT`. |
+| Product_Taxonomy_Table | product_taxonomy_id | VARCHAR2(255) | PK | DIM_PRODUCT | product_taxonomy_id | STRING | N/A | New | PASS | N/A | FAIL (PDM NOT NULL, LDM did not carry) | FAIL | LDM mapping explicitly said this column should *not* be carried. |
+| N/A | N/A | N/A | PK Only | DIM_PRICING | SK_PRICING | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PKs. |
+| Account_SKU_Price_Rule | currency_conversion_rate | NUMBER(20,9) | N/A | DIM_PRICING | currency_conversion_rate | BIGNUMERIC | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | From LDM `DIM_PRICING_RULE`. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | consumption_model_id_sk | STRING | N/A | New | PASS | N/A | FAIL (PDM NOT NULL, LDM does not specify as target col) | FAIL | LDM specified `consumption_model_id` as target, not `consumption_model_id_sk`. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | rule_price_reason | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column. |
+| N/A | N/A | N/A | N/A | DIM_PRICING | rule_discount_percent | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW column. |
+| Resource_Inventory_Table | project_id | VARCHAR2(255) | N/A | DIM_RESOURCE | project_id | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| N/A | N/A | N/A | PK Only | BRDG_RESOURCE_TAG | SK_RESOURCE_TAG_BRIDGE | STRING | PK | Mapped (Consolidated/Rename) | PASS | FAIL (Single PK vs two in LDM) | PASS (NOT NULL) | FAIL | PDM consolidated two LDM tables, changing PKs. |
+| Resource_Label_Table | label_key | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | label_key | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Label_Table | label_value | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | label_value | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | tag_key | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | tag_key | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | tag_value | VARCHAR2(255) | N/A | BRDG_RESOURCE_TAG | tag_value | STRING | N/A | Mapped | PASS | N/A | FAIL (PDM NOT NULL, LDM NULLABLE) | FAIL | |
+| Resource_Tag_Table | resource_tag_sk | VARCHAR2(255) | PK | BRDG_RESOURCE_TAG | resource_tag_sk | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | LDM intended this for SK generation, not retention as column. |
+| Resource_Label_Table | resource_label_sk | VARCHAR2(255) | PK | BRDG_RESOURCE_TAG | resource_label_sk | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | LDM intended this for SK generation, not retention as column. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | SK_INVOICE | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_month | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_year | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_quarter | INT64 | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_INVOICE | invoice_month_name | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | DIM_LOCATION | SK_LOCATION | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_MONTHLY_AGGREGATE | STRING | PK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_ORGANIZATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_PRODUCT | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_PRICING | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_LOCATION | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_DATE | DATE | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | SK_INVOICE | STRING | FK | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | MONTHLY_TOTAL_COST | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | MONTHLY_TOTAL_CREDIT | BIGNUMERIC | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | invoice_month | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | cost_type | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | project_id | STRING | N/A | New | PASS | N/A | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | service_sku_id | STRING | N/A | New | PASS | PASS | PASS (NOT NULL) | FAIL | NET-NEW table in PDM. |
+| N/A | N/A | N/A | N/A | FACT_MONTHLY_AGGREGATE | billing_account_price_id | STRING | N/A | New | PASS | N/A | PASS (NULLABLE) | FAIL | NET-NEW table in PDM. |
+
+### 1d. Final Validation Status
+
+**FAIL**
+
+The validation process identified critical discrepancies and structural deviations between the intended Logical Data Model (LDM) and the generated Physical Data Model (PDM). These issues include:
+
+"*   **Significant Table Restructuring:** Multiple LDM-specified tables were consolidated, renamed, or split into different PDM tables, leading to a large number of ""Net-New"" PDM tables and ""Dropped"" LDM tables when compared by name."
+*   **Key Integrity Violations:** PDM tables often redefined Primary Keys, consolidating multiple LDM-intended PKs into a single one, and in some cases, losing explicit Foreign Key relationships or modifying them (e.g., in `DIM_ORGANIZATION`, `DIM_PRICING`, `BRDG_RESOURCE_TAG`).
+*   **Data Type Inconsistencies:** Several columns exhibited incompatible data type changes (e.g., `SK_DATE` from TIMESTAMP to DATE, `SK_TIME` from TIME to STRING, `WEEKDAY_FLAG` from STRING to BOOL).
+*   **Constraint Violations:** Numerous columns in the PDM altered their NULL/NOT NULL constraints compared to the LDM specification, potentially impacting data quality and integration logic.
+*   **Unspecified Columns and Tables:** The PDM introduced several new columns and entirely new tables (`DIM_INVOICE`, `DIM_LOCATION`, `FACT_MONTHLY_AGGREGATE`) that were not explicitly defined or intended in the LDM/Mapping Specification. Conversely, some LDM-specified target columns were missing in the PDM.
+
+These findings indicate that the generated PDM does not accurately reflect the LDM design, necessitating a review of the model generation process and reconciliation with the LDM specification.

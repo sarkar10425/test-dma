@@ -1,0 +1,42 @@
+Model Selection and Structure
+|Component|Rationale|
+|:---|:---|
+|Model Type|Dimensional Model (Star Schema). The existing highly normalized legacy EDW needs to be denormalized to meet the required P90 dashboard load time (sub-20 seconds) and support analytical performance for Looker/Looker Studio visualization, as specified by user requirements.|
+|Granularity|Atomic Line-Item Level (Billing_Transaction_Ledger) for cost data to support detailed reconciliation and deep anomaly detection. Hourly time-series for utilization data, leveraging `dim_time` for granular analysis. Aggregated monthly facts (`FACT_MONTHLY_AGGREGATE`) will also be used to optimize performance for high-level dashboards and historical trending.|
+|Design Principle|Conformed Dimensions. All core dimensions (ORGANIZATION, PRODUCT, RESOURCE, LOCATION, PRICING) will be consistent across the entire multi-cloud estate, enabling the Cross-Cloud Cost Allocation goal and standardized reporting. Denormalization within dimensions will be applied where appropriate to simplify queries and optimize performance.|
+
+Blueprint Mapping: Fact Tables (Data Tables)
+The model uses the atomic `Billing_Transaction_Ledger` as the primary Transaction Fact and adds aggregated facts for performance.
+|Target Fact Table|Source Table Mapping (Source DDL)|Key Metrics Supported|
+|:---|:---|:---|
+|FACT_USAGE_DAILY (Transaction)|Billing_Transaction_Ledger_Table (Core), Transaction_Credit_Item_Table|Total Monthly Cloud Spend, Unit Cost Metrics (cost/usage), Total Cost, Cost by K8s Namespace/Workload, Reservation/Commitment Coverage Rate.|
+|FACT_MONTHLY_AGGREGATE (Aggregate)|Aggregated from Billing_Transaction_Ledger_Table|Actual vs. Budget Variance (Supports fast historical trending and monthly summaries for KPIs like Total Monthly Cloud Spend).|
+|BRDG_COMPLEX_PRICING (Bridge)|Account_SKU_Price_Rule (Master), Account_Price_Tier_Table (Data Table), Consumption_Model_Rule_Table (Data Table)|Models complex pricing rules, discounts, and tiered structures to capture negotiated effective rates and support accurate cost calculation and reconciliation.|
+
+Blueprint Mapping: Dimension Tables (Master & Data Tables)
+All dimensions are designed as wide, denormalized tables to simplify user queries and optimize Looker/Looker Studio performance.
+|Target Dimension Table|Source Table Mapping (Source DDL)|SCD Type Requirement|
+|:---|:---|:---|
+|DIM_ORGANIZATION|Project_Profile_Table (Master), Project_Ancestor_Node_Table (Data Table), dim_organization_hierarchy (NEW Master Table)|SCD Type 2. Mandatory for tracking changes to `business_unit` and `workload` (Historical Cost Accountability, RLS, Chargeback reporting). Flattened hierarchy from `dim_organization_hierarchy` will be integrated.|
+|DIM_PRODUCT|Service_SKU_Table (Master), Product_Taxonomy_Table (Data Table)|SCD Type 2. Captures changes to product definitions, descriptions, and taxonomy mappings for accurate historical cost context.|
+|DIM_RESOURCE|Resource_Inventory_Table (Master)|SCD Type 2. Necessary for resources where descriptive attributes or organizational assignments (e.g., location, cost center) change over time, maintaining historical context.|
+|DIM_LOCATION|Geo_Taxonomy_Table (Data Table)|SCD Type 1. Geography attributes (Region, Zone) are typically static lookups. However, if any geographical property changes that impacts historical context, it will be promoted to SCD Type 2.|
+|DIM_PRICING|Account_SKU_Price_Rule (Master)|SCD Type 2. Essential for preserving the historical context of pricing rules and discounts, as pricing can change over time.|
+|DIM_DATE|dim_date (NEW Reference Table)|No SCD. Standard date dimension for time-based analysis.|
+|DIM_TIME|dim_time (NEW Reference Table)|No SCD. Provides sub-daily resolution (e.g., 15-min intervals) for detailed utilization analysis, especially for container cost allocation.|
+|DIM_INVOICE|dim_invoice (NEW Reference Table)|No SCD. Derived from invoice month and other header attributes to provide invoice-level context.|
+
+Supporting Tables
+|Target Reference Table|Source Table Mapping (Source DDL)|SCD Type Requirement|
+|:---|:---|:---|
+|BRDG_RESOURCE_TAG|Resource_Tag_Table (Data Table)|No SCD. Captures volatile, granular tag key-value pairs tied to resources. This allows for flexible tagging without denormalizing all possible tags into the `DIM_RESOURCE` table and supports diverse tag-based queries.|
+|BRDG_RESOURCE_LABEL|Resource_Label_Table (Data Table)|No SCD. Captures resource label key-value pairs, similar to tags, providing additional granular metadata for resource identification and filtering.|
+
+Requirement Integration (Compliance & Performance)
+|Non-Functional Requirement|Implementation Strategy in DDM|
+|:---|:---|
+|Query Performance SLO (sub-20s)|Achieved via Star Schema (denormalization) justified by the need to optimize for dashboard loads. The introduction of `FACT_MONTHLY_AGGREGATE` allows dashboards to query pre-summarized data, further enhancing performance for historical trending and high-level summaries, addressing the user's current 5-10 minute load times.|
+|RLS (Row-Level Security)|Implemented on the `DIM_ORGANIZATION` table. BigQuery RLS policies will restrict access to Fact tables based on the user's mapped `business_unit` or `workload` attributes within the `DIM_ORGANIZATION` table, ensuring data visibility is authorized and supporting chargeback reporting requirements.|
+|SCD Type 2 Tracking|Applied to `DIM_ORGANIZATION` to satisfy the mandatory requirement for historical cost accountability when `business_unit` or `workload` changes. Also applied to `DIM_PRODUCT` and `DIM_PRICING` to preserve cost context accurately over time for product definitions and pricing rules.|
+|Granularity (Atomic Line-Item & Hourly)|The model retains the atomic billing line-item in `FACT_USAGE_DAILY` for reconciliation purposes. It links to the `DIM_TIME` table to enable the required hourly time-series analysis for utilization data, critical for use cases like container cost allocation.|
+|Consistency (Mandatory Tags)|The design supports the enforcement of mandatory tags like `business_unit` and `workload` (95% presence requirement) through data quality checks during ETL, ensuring consistency and accuracy crucial for cost allocation and reporting.|
